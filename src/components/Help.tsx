@@ -1,10 +1,10 @@
 import { Box, Text } from 'ink'
 
 const BINDINGS: [string, string][] = [
-  ['←/h', 'previous column'],
-  ['→/l', 'next column'],
-  ['↑/k', 'previous item'],
-  ['↓/j', 'next item'],
+  ['←/h, →/l', 'previous/next column'],
+  ['↑/k, ↓/j', 'previous/next item (scroll body in detail)'],
+  ['Enter, d', 'open detail view'],
+  ['Esc', 'close detail / help'],
   ['o', 'open item in browser'],
   ['r', 'reload'],
   ['?', 'toggle help'],
@@ -18,7 +18,7 @@ export function Help() {
       <Box marginTop={1} flexDirection="column">
         {BINDINGS.map(([key, desc]) => (
           <Text key={key}>
-            <Text color="cyan">{key.padEnd(12)}</Text>
+            <Text color="cyan">{key.padEnd(14)}</Text>
             {desc}
           </Text>
         ))}

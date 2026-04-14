@@ -15,6 +15,7 @@ export interface BaseContent {
   number?: number
   url?: string
   state?: string
+  body?: string
   assignees: Assignee[]
   labels: Label[]
 }

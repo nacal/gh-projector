@@ -9,6 +9,7 @@ interface Props {
   fetchedAt: Date | null
   loading: boolean
   error: string | null
+  detailOpen: boolean
 }
 
 function fmtTime(d: Date): string {
@@ -24,7 +25,12 @@ export function StatusBar({
   fetchedAt,
   loading,
   error,
+  detailOpen,
 }: Props) {
+  const hint = detailOpen
+    ? '↑/↓ scroll · o open · Esc back · q quit'
+    : '←/→ column · ↑/↓ item · Enter detail · o open · r reload · ? help · q quit'
+
   return (
     <Box flexDirection="column" marginTop={1}>
       <Box>
@@ -37,7 +43,7 @@ export function StatusBar({
         </Text>
       </Box>
       {error && <Text color="red">error: {error}</Text>}
-      <Text color="gray">←/→ column · ↑/↓ item · o open · r reload · ? help · q quit</Text>
+      <Text color="gray">{hint}</Text>
     </Box>
   )
 }

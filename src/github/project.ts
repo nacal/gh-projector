@@ -101,6 +101,7 @@ interface RawItem {
     number?: number
     url?: string
     state?: string
+    body?: string
     assignees?: { nodes: Assignee[] }
     labels?: { nodes: Label[] }
   } | null
@@ -116,6 +117,7 @@ function normalizeItem(raw: RawItem, columnFieldId: string): Item | null {
     number: raw.content.number,
     url: raw.content.url,
     state: raw.content.state,
+    body: raw.content.body,
     assignees: raw.content.assignees?.nodes ?? [],
     labels: raw.content.labels?.nodes ?? [],
   }

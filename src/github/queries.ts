@@ -64,6 +64,7 @@ export const PROJECT_ITEMS_QUERY = /* GraphQL */ `
               __typename
               ... on DraftIssue {
                 title
+                body
                 assignees(first: 10) {
                   nodes {
                     login
@@ -75,6 +76,7 @@ export const PROJECT_ITEMS_QUERY = /* GraphQL */ `
                 number
                 url
                 state
+                body
                 assignees(first: 10) {
                   nodes {
                     login
@@ -92,6 +94,7 @@ export const PROJECT_ITEMS_QUERY = /* GraphQL */ `
                 number
                 url
                 state
+                body
                 assignees(first: 10) {
                   nodes {
                     login

@@ -1,6 +1,7 @@
 import { Box, Text, useApp, useInput, useStdout } from 'ink'
 import { useEffect, useMemo, useState } from 'react'
 import { Board, groupItems } from './components/Board'
+import { DetailView } from './components/DetailView'
 import { Help } from './components/Help'
 import { StatusBar } from './components/StatusBar'
 import { useProject } from './hooks/useProject'
@@ -34,6 +35,8 @@ export function App(props: Props) {
   const [columnIndex, setColumnIndex] = useState(0)
   const [itemIndex, setItemIndex] = useState(0)
   const [showHelp, setShowHelp] = useState(false)
+  const [showDetail, setShowDetail] = useState(false)
+  const [bodyScroll, setBodyScroll] = useState(0)
 
   const columns = useMemo(() => (snapshot ? groupItems(snapshot) : []), [snapshot])
 
@@ -46,31 +49,65 @@ export function App(props: Props) {
     }
   }, [columns, columnIndex, itemIndex])
 
+  const currentCol = columns[columnIndex]
+  const currentItem = currentCol?.items[itemIndex]
+
   useInput((input, key) => {
     if (key.ctrl && input === 'c') {
       exit()
       return
     }
     if (input === 'q') {
+      if (showDetail) {
+        setShowDetail(false)
+        return
+      }
       exit()
       return
     }
-    if (input === '?') {
-      setShowHelp((v) => !v)
-      return
-    }
+
     if (showHelp) {
-      if (key.escape || input === '?') setShowHelp(false)
+      if (key.escape || input === '?' || input === 'q') setShowHelp(false)
       return
     }
+    if (input === '?') {
+      setShowHelp(true)
+      return
+    }
+
+    if (showDetail) {
+      if (key.escape) {
+        setShowDetail(false)
+        return
+      }
+      if (key.upArrow || input === 'k') {
+        setBodyScroll((s) => Math.max(0, s - 1))
+        return
+      }
+      if (key.downArrow || input === 'j') {
+        setBodyScroll((s) => s + 1)
+        return
+      }
+      if (input === 'o' && currentItem?.content.url) {
+        openUrl(currentItem.content.url)
+        return
+      }
+      return
+    }
+
     if (input === 'r') {
       reload()
       return
     }
     if (input === 'o') {
-      const col = columns[columnIndex]
-      const item = col?.items[itemIndex]
-      if (item?.content.url) openUrl(item.content.url)
+      if (currentItem?.content.url) openUrl(currentItem.content.url)
+      return
+    }
+    if (key.return || input === 'd') {
+      if (currentItem) {
+        setBodyScroll(0)
+        setShowDetail(true)
+      }
       return
     }
     if (key.leftArrow || input === 'h') {
@@ -88,8 +125,7 @@ export function App(props: Props) {
       return
     }
     if (key.downArrow || input === 'j') {
-      const col = columns[columnIndex]
-      const max = col ? Math.max(0, col.items.length - 1) : 0
+      const max = currentCol ? Math.max(0, currentCol.items.length - 1) : 0
       setItemIndex((i) => Math.min(max, i + 1))
       return
     }
@@ -122,6 +158,14 @@ export function App(props: Props) {
         <Box flexDirection="column" padding={1}>
           <Help />
         </Box>
+      ) : showDetail && currentItem ? (
+        <DetailView
+          item={currentItem}
+          columnName={currentCol?.name ?? null}
+          width={size.width}
+          height={boardHeight}
+          scrollOffset={bodyScroll}
+        />
       ) : (
         <Board
           snapshot={snapshot}
@@ -140,6 +184,7 @@ export function App(props: Props) {
         fetchedAt={snapshot.fetchedAt}
         loading={loading}
         error={error}
+        detailOpen={showDetail}
       />
     </Box>
   )
