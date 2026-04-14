@@ -2,10 +2,11 @@ import { Box, Text } from 'ink'
 
 const BINDINGS: [string, string][] = [
   ['←/h, →/l', 'previous/next column'],
-  ['↑/k, ↓/j', 'previous/next item (scroll body in detail)'],
+  ['↑/k, ↓/j', 'previous/next item (scroll body in detail view)'],
   ['Enter, d', 'open detail view'],
   ['Esc', 'close detail / help'],
   ['o', 'open item in browser'],
+  ['v', 'toggle board / tabs mode'],
   ['r', 'reload'],
   ['?', 'toggle help'],
   ['q / Ctrl+C', 'quit'],

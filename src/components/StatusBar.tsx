@@ -9,6 +9,7 @@ interface Props {
   fetchedAt: Date | null
   loading: boolean
   error: string | null
+  mode: string
   detailOpen: boolean
 }
 
@@ -25,11 +26,12 @@ export function StatusBar({
   fetchedAt,
   loading,
   error,
+  mode,
   detailOpen,
 }: Props) {
   const hint = detailOpen
     ? '↑/↓ scroll · o open · Esc back · q quit'
-    : '←/→ column · ↑/↓ item · Enter detail · o open · r reload · ? help · q quit'
+    : '←/→ column · ↑/↓ item · Enter detail · o open · v mode · r reload · ? help · q quit'
 
   return (
     <Box flexDirection="column" marginTop={1}>
@@ -37,7 +39,7 @@ export function StatusBar({
         <Text bold>{projectTitle}</Text>
         <Text color="gray">
           {' '}
-          ({host}/{owner}#{number}) · {itemCount} items
+          ({host}/{owner}#{number}) · {itemCount} items · {mode}
           {fetchedAt && ` · updated ${fmtTime(fetchedAt)}`}
           {loading && ' · loading…'}
         </Text>

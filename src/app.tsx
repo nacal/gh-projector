@@ -1,9 +1,10 @@
 import { Box, Text, useApp, useInput, useStdout } from 'ink'
-import { useEffect, useMemo, useState } from 'react'
+import { useEffect, useMemo, useRef, useState } from 'react'
 import { Board, groupItems } from './components/Board'
 import { DetailView } from './components/DetailView'
 import { Help } from './components/Help'
 import { StatusBar } from './components/StatusBar'
+import { TabsView } from './components/TabsView'
 import { useProject } from './hooks/useProject'
 import { openUrl } from './utils/open'
 
@@ -13,6 +14,15 @@ interface Props {
   number: number
   columnField: string
   refreshIntervalSeconds?: number
+}
+
+type ViewMode = 'board' | 'tabs'
+
+const MIN_COLUMN_WIDTH_FOR_BOARD = 28
+
+function autoViewMode(width: number, columnCount: number): ViewMode {
+  if (columnCount <= 1) return 'tabs'
+  return columnCount * MIN_COLUMN_WIDTH_FOR_BOARD <= width ? 'board' : 'tabs'
 }
 
 export function App(props: Props) {
@@ -37,8 +47,13 @@ export function App(props: Props) {
   const [showHelp, setShowHelp] = useState(false)
   const [showDetail, setShowDetail] = useState(false)
   const [bodyScroll, setBodyScroll] = useState(0)
+  const [modeOverride, setModeOverride] = useState<ViewMode | null>(null)
+  const userToggled = useRef(false)
 
   const columns = useMemo(() => (snapshot ? groupItems(snapshot) : []), [snapshot])
+  const columnCount = columns.length
+  const autoMode = autoViewMode(size.width, Math.max(1, columnCount))
+  const viewMode: ViewMode = modeOverride ?? autoMode
 
   useEffect(() => {
     if (columns.length === 0) return
@@ -99,6 +114,11 @@ export function App(props: Props) {
       reload()
       return
     }
+    if (input === 'v') {
+      userToggled.current = true
+      setModeOverride(viewMode === 'board' ? 'tabs' : 'board')
+      return
+    }
     if (input === 'o') {
       if (currentItem?.content.url) openUrl(currentItem.content.url)
       return
@@ -152,6 +172,8 @@ export function App(props: Props) {
 
   if (!snapshot) return null
 
+  const hint = viewMode === 'board' ? 'board' : `tabs${modeOverride ? '' : ' (auto)'}`
+
   return (
     <Box flexDirection="column" width={size.width}>
       {showHelp ? (
@@ -166,9 +188,17 @@ export function App(props: Props) {
           height={boardHeight}
           scrollOffset={bodyScroll}
         />
-      ) : (
+      ) : viewMode === 'board' ? (
         <Board
           snapshot={snapshot}
+          columnIndex={columnIndex}
+          itemIndex={itemIndex}
+          width={size.width}
+          height={boardHeight}
+        />
+      ) : (
+        <TabsView
+          columns={columns}
           columnIndex={columnIndex}
           itemIndex={itemIndex}
           width={size.width}
@@ -184,6 +214,7 @@ export function App(props: Props) {
         fetchedAt={snapshot.fetchedAt}
         loading={loading}
         error={error}
+        mode={hint}
         detailOpen={showDetail}
       />
     </Box>
