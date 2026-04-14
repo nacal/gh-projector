@@ -1,0 +1,62 @@
+name: Release
+
+on:
+  push:
+    tags:
+      - 'v*'
+
+permissions:
+  contents: write
+
+jobs:
+  build:
+    strategy:
+      fail-fast: false
+      matrix:
+        include:
+          - target: bun-darwin-arm64
+            asset: gh-projector-darwin-arm64
+          - target: bun-darwin-x64
+            asset: gh-projector-darwin-amd64
+          - target: bun-linux-arm64
+            asset: gh-projector-linux-arm64
+          - target: bun-linux-x64
+            asset: gh-projector-linux-amd64
+          - target: bun-windows-x64
+            asset: gh-projector-windows-amd64.exe
+    runs-on: ubuntu-latest
+    steps:
+      - uses: actions/checkout@v4
+      - uses: oven-sh/setup-bun@v2
+        with:
+          bun-version: latest
+      - run: bun install --frozen-lockfile
+      - name: Build ${{ matrix.asset }}
+        run: |
+          bun build --compile --minify --sourcemap \
+            --target=${{ matrix.target }} \
+            --external react-devtools-core \
+            src/cli.tsx \
+            --outfile dist/${{ matrix.asset }}
+      - uses: actions/upload-artifact@v4
+        with:
+          name: ${{ matrix.asset }}
+          path: dist/${{ matrix.asset }}
+
+  release:
+    needs: build
+    runs-on: ubuntu-latest
+    steps:
+      - uses: actions/checkout@v4
+      - uses: actions/download-artifact@v4
+        with:
+          path: dist
+          merge-multiple: true
+      - name: Create release
+        env:
+          GH_TOKEN: ${{ secrets.GITHUB_TOKEN }}
+        run: |
+          gh release create "$GITHUB_REF_NAME" \
+            --title "$GITHUB_REF_NAME" \
+            --generate-notes \
+            dist/*
