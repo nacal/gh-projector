@@ -5,6 +5,7 @@ const BINDINGS: [string, string][] = [
   ['↑/k, ↓/j', 'previous/next item (scroll body in detail view)'],
   ['Enter, d', 'open detail view'],
   ['Esc', 'close detail / help'],
+  ['/', 'filter items by title / assignee / label'],
   ['o', 'open item in browser'],
   ['v', 'toggle board / tabs mode'],
   ['r', 'reload'],

@@ -6,6 +6,7 @@ import { Help } from './components/Help'
 import { StatusBar } from './components/StatusBar'
 import { TabsView } from './components/TabsView'
 import { useProject } from './hooks/useProject'
+import { applyFilter } from './utils/filter'
 import { openUrl } from './utils/open'
 
 interface Props {
@@ -48,15 +49,28 @@ export function App(props: Props) {
   const [showDetail, setShowDetail] = useState(false)
   const [bodyScroll, setBodyScroll] = useState(0)
   const [modeOverride, setModeOverride] = useState<ViewMode | null>(null)
+  const [filter, setFilter] = useState('')
+  const [filterDraft, setFilterDraft] = useState<string | null>(null)
   const userToggled = useRef(false)
 
-  const columns = useMemo(() => (snapshot ? groupItems(snapshot) : []), [snapshot])
+  const filteredSnapshot = useMemo(
+    () => (snapshot ? applyFilter(snapshot, filter) : null),
+    [snapshot, filter],
+  )
+  const columns = useMemo(
+    () => (filteredSnapshot ? groupItems(filteredSnapshot) : []),
+    [filteredSnapshot],
+  )
   const columnCount = columns.length
   const autoMode = autoViewMode(size.width, Math.max(1, columnCount))
   const viewMode: ViewMode = modeOverride ?? autoMode
 
   useEffect(() => {
-    if (columns.length === 0) return
+    if (columns.length === 0) {
+      setColumnIndex(0)
+      setItemIndex(0)
+      return
+    }
     if (columnIndex >= columns.length) setColumnIndex(columns.length - 1)
     const col = columns[Math.min(columnIndex, columns.length - 1)]
     if (col && itemIndex >= col.items.length) {
@@ -72,6 +86,29 @@ export function App(props: Props) {
       exit()
       return
     }
+
+    // filter input mode — swallow most keys
+    if (filterDraft !== null) {
+      if (key.escape) {
+        setFilterDraft(null)
+        return
+      }
+      if (key.return) {
+        setFilter(filterDraft)
+        setFilterDraft(null)
+        return
+      }
+      if (key.backspace || key.delete) {
+        setFilterDraft((d) => (d ?? '').slice(0, -1))
+        return
+      }
+      if (input && !key.ctrl && !key.meta) {
+        setFilterDraft((d) => (d ?? '') + input)
+        return
+      }
+      return
+    }
+
     if (input === 'q') {
       if (showDetail) {
         setShowDetail(false)
@@ -110,6 +147,14 @@ export function App(props: Props) {
       return
     }
 
+    if (key.escape && filter.length > 0) {
+      setFilter('')
+      return
+    }
+    if (input === '/') {
+      setFilterDraft(filter)
+      return
+    }
     if (input === 'r') {
       reload()
       return
@@ -170,7 +215,7 @@ export function App(props: Props) {
     )
   }
 
-  if (!snapshot) return null
+  if (!snapshot || !filteredSnapshot) return null
 
   const hint = viewMode === 'board' ? 'board' : `tabs${modeOverride ? '' : ' (auto)'}`
 
@@ -190,7 +235,7 @@ export function App(props: Props) {
         />
       ) : viewMode === 'board' ? (
         <Board
-          snapshot={snapshot}
+          snapshot={filteredSnapshot}
           columnIndex={columnIndex}
           itemIndex={itemIndex}
           width={size.width}
@@ -210,12 +255,15 @@ export function App(props: Props) {
         owner={props.owner}
         number={props.number}
         host={props.host}
-        itemCount={snapshot.items.length}
+        itemCount={filteredSnapshot.items.length}
+        totalCount={snapshot.items.length}
         fetchedAt={snapshot.fetchedAt}
         loading={loading}
         error={error}
         mode={hint}
         detailOpen={showDetail}
+        filter={filter}
+        filterInput={filterDraft}
       />
     </Box>
   )

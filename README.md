@@ -32,7 +32,8 @@ gh projector
 | `←` / `h`, `→` / `l` | Move between columns |
 | `↑` / `k`, `↓` / `j` | Move between items (scroll body in detail view) |
 | `Enter` / `d` | Open detail view |
-| `Esc` | Close detail view / help |
+| `/` | Filter items by title / assignee / label |
+| `Esc` | Close detail view / help / clear filter |
 | `o` | Open selected item in browser |
 | `v` | Toggle board / tabs layout |
 | `r` | Reload |
