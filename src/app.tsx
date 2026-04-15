@@ -210,7 +210,7 @@ export function App(props: Props) {
     return (
       <Box flexDirection="column" padding={1}>
         <Text color="red">Error: {error}</Text>
-        <Text color="gray">Press q to exit, r to retry.</Text>
+        <Text dimColor>Press q to exit, r to retry.</Text>
       </Box>
     )
   }

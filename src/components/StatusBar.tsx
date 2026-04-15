@@ -45,7 +45,7 @@ export function StatusBar({
     <Box flexDirection="column" marginTop={1}>
       <Box>
         <Text bold>{projectTitle}</Text>
-        <Text color="gray">
+        <Text dimColor>
           {' '}
           ({host}/{owner}#{number}) · {filtered ? `${itemCount}/${totalCount}` : totalCount} items ·{' '}
           {mode}
@@ -62,16 +62,16 @@ export function StatusBar({
         <Text>
           <Text color="yellow">/ </Text>
           <Text>{filterInput}</Text>
-          <Text color="gray">▌ </Text>
-          <Text color="gray">(Enter to apply, Esc to cancel)</Text>
+          <Text dimColor>▌ </Text>
+          <Text dimColor>(Enter to apply, Esc to cancel)</Text>
         </Text>
       ) : filter.length > 0 ? (
         <Text color="yellow">
-          filter: {filter} <Text color="gray">(Esc to clear)</Text>
+          filter: {filter} <Text dimColor>(Esc to clear)</Text>
         </Text>
       ) : null}
       {error && <Text color="red">error: {error}</Text>}
-      <Text color="gray">{hint}</Text>
+      <Text dimColor>{hint}</Text>
     </Box>
   )
 }

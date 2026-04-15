@@ -41,14 +41,14 @@ export function DetailView({ item, columnName, width, height, scrollOffset }: Pr
   return (
     <Box flexDirection="column" width={width} height={height} paddingX={1}>
       <Box>
-        <Text color="gray">{header}</Text>
+        <Text dimColor>{header}</Text>
         {c.state && (
           <Text color={stateColor(c.state)} bold>
             {'  '}
             {c.state}
           </Text>
         )}
-        {columnName && <Text color="gray">{`   [${columnName}]`}</Text>}
+        {columnName && <Text dimColor>{`   [${columnName}]`}</Text>}
       </Box>
       <Box marginTop={1}>
         <Text bold>{c.title}</Text>
@@ -60,13 +60,13 @@ export function DetailView({ item, columnName, width, height, scrollOffset }: Pr
       )}
       {c.assignees.length > 0 && (
         <Box marginTop={1}>
-          <Text color="gray">Assignees: </Text>
+          <Text dimColor>Assignees: </Text>
           <Text>{c.assignees.map((a) => `@${a.login}`).join(' ')}</Text>
         </Box>
       )}
       {c.labels.length > 0 && (
         <Box>
-          <Text color="gray">Labels: </Text>
+          <Text dimColor>Labels: </Text>
           <Text>{c.labels.map((l) => l.name).join(', ')}</Text>
         </Box>
       )}
@@ -74,18 +74,18 @@ export function DetailView({ item, columnName, width, height, scrollOffset }: Pr
         <Box flexDirection="column" marginTop={1}>
           {item.extraFields.map((f) => (
             <Box key={f.fieldName}>
-              <Text color="gray">{f.fieldName}: </Text>
+              <Text dimColor>{f.fieldName}: </Text>
               <Text>{f.text}</Text>
             </Box>
           ))}
         </Box>
       )}
       <Box marginTop={1} flexDirection="column">
-        <Text color="gray">
+        <Text dimColor>
           ── body {hasMoreAbove ? '(↑ more above)' : ''} {hasMoreBelow ? '(↓ more below)' : ''}
         </Text>
         {visibleBody.length === 0 || (visibleBody.length === 1 && visibleBody[0] === '') ? (
-          <Text color="gray">(no body)</Text>
+          <Text dimColor>(no body)</Text>
         ) : (
           visibleBody.map((line, i) => {
             const key = `${scrollOffset + i}`

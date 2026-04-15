@@ -44,11 +44,11 @@ export function Column({ name, items, width, focused, selectedItemIndex, maxVisi
             </Box>
           )
         })}
-        {items.length === 0 && <Text color="gray">(empty)</Text>}
+        {items.length === 0 && <Text dimColor>(empty)</Text>}
         {start + visible.length < items.length && (
-          <Text color="gray">↓ {items.length - (start + visible.length)} more</Text>
+          <Text dimColor>↓ {items.length - (start + visible.length)} more</Text>
         )}
-        {start > 0 && <Text color="gray">↑ {start} more</Text>}
+        {start > 0 && <Text dimColor>↑ {start} more</Text>}
       </Box>
     </Box>
   )

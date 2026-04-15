@@ -26,12 +26,12 @@ interface Badge {
 function stateBadge(item: Item): Badge | null {
   const kind = item.content.kind
   const state = item.content.state
-  if (kind === 'DraftIssue') return { text: 'DRAFT', color: 'gray' }
+  if (kind === 'DraftIssue') return { text: 'DRAFT', color: 'white' }
   if (!state) return null
   if (state === 'OPEN') return { text: 'OPEN', color: 'green' }
   if (state === 'CLOSED') return { text: 'CLOSED', color: 'red' }
   if (state === 'MERGED') return { text: 'MERGED', color: 'magenta' }
-  return { text: state, color: 'gray' }
+  return { text: state, color: 'white' }
 }
 
 function truncate(s: string, max: number): string {
@@ -72,7 +72,7 @@ export function Card({ item, width, selected }: Props) {
         </Text>
       </Box>
       {assignees.length > 0 && (
-        <Text color="gray" wrap="truncate">
+        <Text dimColor wrap="truncate">
           {truncate(assignees, inner)}
         </Text>
       )}
@@ -87,7 +87,7 @@ export function Card({ item, width, selected }: Props) {
         </Box>
       )}
       {extras.length > 0 && (
-        <Text color="gray" wrap="truncate">
+        <Text dimColor wrap="truncate">
           {truncate(extras, inner)}
         </Text>
       )}

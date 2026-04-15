@@ -48,8 +48,8 @@ export function TabsView({ columns, columnIndex, itemIndex, width, height }: Pro
         })}
       </Box>
       <Box flexDirection="column" marginTop={1}>
-        {col && col.items.length === 0 && <Text color="gray">(empty)</Text>}
-        {start > 0 && <Text color="gray">↑ {start} more</Text>}
+        {col && col.items.length === 0 && <Text dimColor>(empty)</Text>}
+        {start > 0 && <Text dimColor>↑ {start} more</Text>}
         {visible.map((item, i) => {
           const absIndex = start + i
           return (
@@ -57,7 +57,7 @@ export function TabsView({ columns, columnIndex, itemIndex, width, height }: Pro
           )
         })}
         {col && start + visible.length < col.items.length && (
-          <Text color="gray">↓ {col.items.length - (start + visible.length)} more</Text>
+          <Text dimColor>↓ {col.items.length - (start + visible.length)} more</Text>
         )}
       </Box>
     </Box>
