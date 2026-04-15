@@ -1,5 +1,5 @@
 import { Box, Text } from 'ink'
-import type { Item } from '../types'
+import type { Item, Label } from '../types'
 
 interface Props {
   item: Item
@@ -18,20 +18,40 @@ function kindIcon(kind: Item['content']['kind']): string {
   }
 }
 
+interface Badge {
+  text: string
+  color: string
+}
+
+function stateBadge(item: Item): Badge | null {
+  const kind = item.content.kind
+  const state = item.content.state
+  if (kind === 'DraftIssue') return { text: 'DRAFT', color: 'gray' }
+  if (!state) return null
+  if (state === 'OPEN') return { text: 'OPEN', color: 'green' }
+  if (state === 'CLOSED') return { text: 'CLOSED', color: 'red' }
+  if (state === 'MERGED') return { text: 'MERGED', color: 'magenta' }
+  return { text: state, color: 'gray' }
+}
+
 function truncate(s: string, max: number): string {
   if (max <= 1) return s.slice(0, max)
   return s.length > max ? `${s.slice(0, max - 1)}…` : s
 }
 
+function labelColor(label: Label): string {
+  const hex = label.color?.replace(/^#/, '') ?? ''
+  return /^[0-9a-fA-F]{6}$/.test(hex) ? `#${hex}` : 'yellow'
+}
+
 export function Card({ item, width, selected }: Props) {
   const inner = Math.max(1, width - 4)
   const c = item.content
+  const badge = stateBadge(item)
   const numberStr = c.number !== undefined ? `#${c.number} ` : ''
-  const header = `${kindIcon(c.kind)} ${numberStr}${c.title}`
+  const headerText = `${kindIcon(c.kind)} ${numberStr}${c.title}`
   const assignees = c.assignees.map((a) => `@${a.login}`).join(' ')
-  const labels = c.labels.map((l) => l.name).join(', ')
   const extras = item.extraFields.map((f) => `${f.fieldName}: ${f.text}`).join(' · ')
-  const metaLines = [assignees, labels, extras].filter((s) => s.length > 0)
 
   return (
     <Box
@@ -41,14 +61,36 @@ export function Card({ item, width, selected }: Props) {
       width={width}
       paddingX={1}
     >
-      <Text bold={selected} wrap="truncate">
-        {truncate(header, inner)}
-      </Text>
-      {metaLines.map((line) => (
-        <Text key={line} color="gray" wrap="truncate">
-          {truncate(line, inner)}
+      <Box>
+        {badge && (
+          <Text bold color={badge.color}>
+            {badge.text}{' '}
+          </Text>
+        )}
+        <Text bold={selected} wrap="truncate">
+          {truncate(headerText, Math.max(1, inner - (badge ? badge.text.length + 1 : 0)))}
         </Text>
-      ))}
+      </Box>
+      {assignees.length > 0 && (
+        <Text color="gray" wrap="truncate">
+          {truncate(assignees, inner)}
+        </Text>
+      )}
+      {c.labels.length > 0 && (
+        <Box>
+          {c.labels.map((l, i) => (
+            <Text key={l.name} color={labelColor(l)}>
+              {i > 0 ? ' ' : ''}
+              {l.name}
+            </Text>
+          ))}
+        </Box>
+      )}
+      {extras.length > 0 && (
+        <Text color="gray" wrap="truncate">
+          {truncate(extras, inner)}
+        </Text>
+      )}
     </Box>
   )
 }
