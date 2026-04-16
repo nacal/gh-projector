@@ -16,6 +16,8 @@ interface Props {
   detailOpen: boolean
   filter: string
   filterInput: string | null
+  viewName: string | null
+  viewFilter: string | null
 }
 
 function fmtTime(d: Date): string {
@@ -37,11 +39,13 @@ export function StatusBar({
   detailOpen,
   filter,
   filterInput,
+  viewName,
+  viewFilter,
 }: Props) {
   const filtered = filter.length > 0 && itemCount !== totalCount
   const hint = detailOpen
-    ? '↑/↓ scroll · o open · Esc back · q quit'
-    : '←/→ column · ↑/↓ item · Enter detail · / filter · o open · v mode · r reload · ? help · q quit'
+    ? '↑/↓ scroll · o open · y copy · Esc back · q quit'
+    : '←/→ col · ↑/↓ item · Enter detail · / filter · V view · o open · v mode · s sort · r reload · ? help · q quit'
 
   return (
     <Box flexDirection="column" marginTop={1}>
@@ -52,6 +56,7 @@ export function StatusBar({
           ({host}/{owner}#{number}) · {filtered ? `${itemCount}/${totalCount}` : totalCount} items ·{' '}
           {mode}
           {sort !== 'manual' ? ` · sort: ${sort}` : ''}
+          {viewName ? ` · view: ${viewName}` : ''}
           {fetchedAt && ` · updated ${fmtTime(fetchedAt)}`}
         </Text>
         {loading && (
@@ -61,6 +66,7 @@ export function StatusBar({
           </Text>
         )}
       </Box>
+      {viewFilter && <Text dimColor>view filter: {viewFilter} (not yet parsed)</Text>}
       {filterInput !== null ? (
         <Text>
           <Text color="yellow">/ </Text>

@@ -18,7 +18,12 @@ interface State {
   loading: boolean
   error: string | null
   reload: () => void
-  moveItem: (itemId: string, targetOptionId: string) => Promise<void>
+  moveItem: (
+    itemId: string,
+    targetOptionId: string,
+    targetOptionName: string,
+    fieldId: string,
+  ) => Promise<void>
   createDraft: (title: string, body?: string) => Promise<void>
   archiveItem: (itemId: string) => Promise<void>
 }
@@ -76,12 +81,11 @@ export function useProject({
   }, [refreshIntervalSeconds, reload])
 
   const moveItem = useCallback(
-    async (itemId: string, targetOptionId: string) => {
+    async (itemId: string, targetOptionId: string, targetOptionName: string, fieldId: string) => {
       const client = clientRef.current
       const snap = snapshot
       if (!client || !snap) return
 
-      // optimistic update
       setSnapshot((prev) => {
         if (!prev) return prev
         return {
@@ -90,8 +94,10 @@ export function useProject({
             it.id === itemId
               ? {
                   ...it,
-                  statusOptionId: targetOptionId,
-                  statusName: prev.columns.find((c) => c.id === targetOptionId)?.name ?? null,
+                  singleSelectValues: {
+                    ...it.singleSelectValues,
+                    [fieldId]: { optionId: targetOptionId, optionName: targetOptionName },
+                  },
                 }
               : it,
           ),
@@ -99,10 +105,9 @@ export function useProject({
       })
 
       try {
-        await updateItemStatus(client, snap.projectId, itemId, snap.columnFieldId, targetOptionId)
+        await updateItemStatus(client, snap.projectId, itemId, fieldId, targetOptionId)
       } catch (e) {
         setError((e as Error).message)
-        // rollback
         setSnapshot(snap)
       }
     },

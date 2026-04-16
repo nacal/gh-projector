@@ -13,6 +13,7 @@ const BINDINGS: [string, string][] = [
   ['x', 'archive item (with confirmation)'],
   ['s', 'cycle sort: manual / title / updated / created / assignee'],
   ['v', 'toggle board / tabs mode'],
+  ['V', 'pick a project view'],
   ['r', 'reload'],
   ['?', 'toggle help'],
   ['q / Ctrl+C', 'quit'],

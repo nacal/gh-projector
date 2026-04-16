@@ -1,5 +1,5 @@
 import { Box, Text } from 'ink'
-import type { Item } from '../types'
+import type { Item, SingleSelectFieldDef } from '../types'
 import { Card } from './Card'
 
 interface Props {
@@ -9,12 +9,22 @@ interface Props {
   focused: boolean
   selectedItemIndex: number
   maxVisibleItems: number
+  singleSelectFields: SingleSelectFieldDef[]
+  columnFieldId: string
 }
 
-export function Column({ name, items, width, focused, selectedItemIndex, maxVisibleItems }: Props) {
+export function Column({
+  name,
+  items,
+  width,
+  focused,
+  selectedItemIndex,
+  maxVisibleItems,
+  singleSelectFields,
+  columnFieldId,
+}: Props) {
   const headerColor = focused ? 'cyan' : 'white'
 
-  // simple windowing around selection
   let start = 0
   if (items.length > maxVisibleItems) {
     start = Math.max(
@@ -40,6 +50,8 @@ export function Column({ name, items, width, focused, selectedItemIndex, maxVisi
                 item={item}
                 width={width - 1}
                 selected={focused && absIndex === selectedItemIndex}
+                singleSelectFields={singleSelectFields}
+                columnFieldId={columnFieldId}
               />
             </Box>
           )

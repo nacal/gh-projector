@@ -1,5 +1,5 @@
 import { Box, Text } from 'ink'
-import type { Item } from '../types'
+import type { Item, SingleSelectFieldDef } from '../types'
 import { Card } from './Card'
 
 interface ColumnGroup {
@@ -14,9 +14,19 @@ interface Props {
   itemIndex: number
   width: number
   height: number
+  singleSelectFields: SingleSelectFieldDef[]
+  columnFieldId: string
 }
 
-export function TabsView({ columns, columnIndex, itemIndex, width, height }: Props) {
+export function TabsView({
+  columns,
+  columnIndex,
+  itemIndex,
+  width,
+  height,
+  singleSelectFields,
+  columnFieldId,
+}: Props) {
   const col = columns[columnIndex]
 
   const maxVisibleItems = Math.max(1, Math.floor((height - 3) / 5))
@@ -53,7 +63,14 @@ export function TabsView({ columns, columnIndex, itemIndex, width, height }: Pro
         {visible.map((item, i) => {
           const absIndex = start + i
           return (
-            <Card key={item.id} item={item} width={width - 1} selected={absIndex === itemIndex} />
+            <Card
+              key={item.id}
+              item={item}
+              width={width - 1}
+              selected={absIndex === itemIndex}
+              singleSelectFields={singleSelectFields}
+              columnFieldId={columnFieldId}
+            />
           )
         })}
         {col && start + visible.length < col.items.length && (

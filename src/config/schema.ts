@@ -7,6 +7,7 @@ export const ConfigSchema = z.object({
       owner: z.string().min(1).optional(),
       number: z.number().int().positive().optional(),
       columnField: z.string().min(1).optional(),
+      view: z.string().min(1).optional(),
     })
     .optional(),
   refreshIntervalSeconds: z.number().int().positive().optional(),

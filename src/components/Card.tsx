@@ -1,10 +1,14 @@
 import { Box, Text } from 'ink'
-import type { Item, Label } from '../types'
+import type { Item, Label, SingleSelectFieldDef } from '../types'
 
 interface Props {
   item: Item
   width: number
   selected: boolean
+  /** All SingleSelect fields in the project (for rendering field names). */
+  singleSelectFields: SingleSelectFieldDef[]
+  /** Field ID currently used as columns; its value is already implied by position. */
+  columnFieldId: string
 }
 
 function kindIcon(kind: Item['content']['kind']): string {
@@ -44,14 +48,22 @@ function labelColor(label: Label): string {
   return /^[0-9a-fA-F]{6}$/.test(hex) ? `#${hex}` : 'yellow'
 }
 
-export function Card({ item, width, selected }: Props) {
+export function Card({ item, width, selected, singleSelectFields, columnFieldId }: Props) {
   const inner = Math.max(1, width - 4)
   const c = item.content
   const badge = stateBadge(item)
   const numberStr = c.number !== undefined ? `#${c.number} ` : ''
   const headerText = `${kindIcon(c.kind)} ${numberStr}${c.title}`
   const assignees = c.assignees.map((a) => `@${a.login}`).join(' ')
-  const extras = item.extraFields.map((f) => `${f.fieldName}: ${f.text}`).join(' · ')
+
+  const extraSingleSelect: string[] = []
+  for (const f of singleSelectFields) {
+    if (f.id === columnFieldId) continue
+    const v = item.singleSelectValues[f.id]
+    if (v) extraSingleSelect.push(`${f.name}: ${v.optionName}`)
+  }
+  const extraOther = item.extraFields.map((f) => `${f.fieldName}: ${f.text}`)
+  const extras = [...extraSingleSelect, ...extraOther].join(' · ')
 
   return (
     <Box

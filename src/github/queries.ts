@@ -199,6 +199,43 @@ export const ADD_DRAFT_ISSUE_MUTATION = /* GraphQL */ `
   }
 `
 
+export const PROJECT_VIEWS_QUERY = /* GraphQL */ `
+  query ProjectViews($projectId: ID!) {
+    node(id: $projectId) {
+      ... on ProjectV2 {
+        views(first: 50) {
+          nodes {
+            id
+            name
+            number
+            layout
+            filter
+            groupByFields(first: 5) {
+              nodes {
+                ... on ProjectV2FieldCommon {
+                  id
+                  name
+                }
+              }
+            }
+            sortByFields(first: 10) {
+              nodes {
+                field {
+                  ... on ProjectV2FieldCommon {
+                    id
+                    name
+                  }
+                }
+                direction
+              }
+            }
+          }
+        }
+      }
+    }
+  }
+`
+
 export const ARCHIVE_ITEM_MUTATION = /* GraphQL */ `
   mutation ArchiveItem($projectId: ID!, $itemId: ID!) {
     archiveProjectV2Item(input: { projectId: $projectId, itemId: $itemId }) {

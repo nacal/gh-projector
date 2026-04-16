@@ -41,6 +41,7 @@ gh projector
 | `x` | Archive item (with confirmation) |
 | `s` | Cycle sort: manual / title / updated / created / assignee |
 | `v` | Toggle board / tabs layout |
+| `V` | Pick a project view (fetched from GitHub) |
 | `r` | Reload |
 | `?` | Toggle help |
 | `q` / `Ctrl+C` | Quit |
@@ -61,7 +62,8 @@ gh projector
     "host": "github.com",
     "owner": "nacal",
     "number": 1,
-    "columnField": "Status"
+    "columnField": "Status",
+    "view": "Sprint Board"
   },
   "refreshIntervalSeconds": 0
 }

@@ -27,17 +27,50 @@ export interface FieldValue {
   text: string
 }
 
+export interface SingleSelectValue {
+  optionId: string
+  optionName: string
+}
+
 export interface Item {
   id: string
   content: BaseContent
-  statusOptionId: string | null
-  statusName: string | null
+  /** Mapping from SingleSelect field ID to the item's selected option. */
+  singleSelectValues: Record<string, SingleSelectValue>
+  /** Non-SingleSelect custom field values (text/number/date/iteration). */
   extraFields: FieldValue[]
 }
 
 export interface ColumnDef {
   id: string
   name: string
+}
+
+export interface SingleSelectFieldDef {
+  id: string
+  name: string
+  options: ColumnDef[]
+}
+
+export type ViewLayout = 'BOARD_LAYOUT' | 'TABLE_LAYOUT' | 'ROADMAP_LAYOUT'
+
+export type SortDirection = 'ASC' | 'DESC'
+
+export interface ViewSortBy {
+  fieldId: string
+  fieldName: string
+  direction: SortDirection
+}
+
+export interface ProjectView {
+  id: string
+  name: string
+  number: number
+  layout: ViewLayout
+  filter: string | null
+  groupByFieldId: string | null
+  groupByFieldName: string | null
+  sortBy: ViewSortBy[]
 }
 
 export interface ProjectSnapshot {
@@ -47,6 +80,8 @@ export interface ProjectSnapshot {
   columnFieldId: string
   columnFieldName: string
   columns: ColumnDef[]
+  fields: SingleSelectFieldDef[]
   items: Item[]
+  views: ProjectView[]
   fetchedAt: Date
 }

@@ -8,17 +8,22 @@ import { DEFAULT_COLUMN_FIELD, DEFAULT_HOST } from './config/schema'
 const cli = meow(
   `
   Usage
-    $ gh-projector [--host <host>] [--owner <owner>] [--number <n>] [--column-field <name>]
+    $ gh-projector [--host <host>] [--owner <owner>] [--number <n>]
+                   [--column-field <name>] [--view <name>]
 
   Options
     --host          GitHub host (default: github.com)
     --owner         Organization or user login
     --number        Project number
-    --column-field  SingleSelect field name used for columns (default: Status)
+    --column-field  SingleSelect field name used for columns when no view is
+                    active (default: Status)
+    --view          Name of the project view to load initially (press V at
+                    runtime to switch)
 
   Examples
     $ gh-projector --owner nacal --number 1
     $ gh-projector --host git.example.com --owner team --number 42
+    $ gh-projector --view "Sprint Board"
 `,
   {
     importMeta: import.meta,
@@ -27,6 +32,7 @@ const cli = meow(
       owner: { type: 'string' },
       number: { type: 'number' },
       columnField: { type: 'string' },
+      view: { type: 'string' },
     },
   },
 )
@@ -39,6 +45,7 @@ async function main() {
   const owner = cli.flags.owner ?? d.owner
   const number = cli.flags.number ?? d.number
   const columnField = cli.flags.columnField ?? d.columnField ?? DEFAULT_COLUMN_FIELD
+  const viewName = cli.flags.view ?? d.view
 
   if (!owner || !number) {
     console.error('Missing owner or number. Provide via --owner / --number, or set defaults in')
@@ -56,6 +63,7 @@ async function main() {
       owner={owner}
       number={number}
       columnField={columnField}
+      viewName={viewName}
       refreshIntervalSeconds={config.refreshIntervalSeconds}
     />,
   )
