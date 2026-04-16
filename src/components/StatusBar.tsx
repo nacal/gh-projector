@@ -12,6 +12,7 @@ interface Props {
   loading: boolean
   error: string | null
   mode: string
+  sort: string
   detailOpen: boolean
   filter: string
   filterInput: string | null
@@ -32,6 +33,7 @@ export function StatusBar({
   loading,
   error,
   mode,
+  sort,
   detailOpen,
   filter,
   filterInput,
@@ -49,6 +51,7 @@ export function StatusBar({
           {' '}
           ({host}/{owner}#{number}) · {filtered ? `${itemCount}/${totalCount}` : totalCount} items ·{' '}
           {mode}
+          {sort !== 'manual' ? ` · sort: ${sort}` : ''}
           {fetchedAt && ` · updated ${fmtTime(fetchedAt)}`}
         </Text>
         {loading && (

@@ -39,6 +39,7 @@ gh projector
 | `y` | Copy item URL to clipboard |
 | `n` | Create new draft issue |
 | `x` | Archive item (with confirmation) |
+| `s` | Cycle sort: manual / title / updated / created / assignee |
 | `v` | Toggle board / tabs layout |
 | `r` | Reload |
 | `?` | Toggle help |

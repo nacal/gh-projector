@@ -11,6 +11,7 @@ const BINDINGS: [string, string][] = [
   ['y', 'copy item URL to clipboard'],
   ['n', 'create new draft issue'],
   ['x', 'archive item (with confirmation)'],
+  ['s', 'cycle sort: manual / title / updated / created / assignee'],
   ['v', 'toggle board / tabs mode'],
   ['r', 'reload'],
   ['?', 'toggle help'],

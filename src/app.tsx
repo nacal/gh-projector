@@ -9,6 +9,7 @@ import { useProject } from './hooks/useProject'
 import { copyToClipboard } from './utils/clipboard'
 import { applyFilter } from './utils/filter'
 import { openUrl } from './utils/open'
+import { SORT_KEYS, type SortKey, sortItems, sortLabel } from './utils/sort'
 
 interface Props {
   host: string
@@ -55,16 +56,19 @@ export function App(props: Props) {
   const [draftInput, setDraftInput] = useState<string | null>(null)
   const [confirmArchive, setConfirmArchive] = useState(false)
   const [flash, setFlash] = useState<string | null>(null)
+  const [sortKey, setSortKey] = useState<SortKey>('manual')
   const userToggled = useRef(false)
 
   const filteredSnapshot = useMemo(
     () => (snapshot ? applyFilter(snapshot, filter) : null),
     [snapshot, filter],
   )
-  const columns = useMemo(
-    () => (filteredSnapshot ? groupItems(filteredSnapshot) : []),
-    [filteredSnapshot],
-  )
+  const columns = useMemo(() => {
+    if (!filteredSnapshot) return []
+    const cols = groupItems(filteredSnapshot)
+    if (sortKey === 'manual') return cols
+    return cols.map((c) => ({ ...c, items: sortItems(c.items, sortKey) }))
+  }, [filteredSnapshot, sortKey])
   const columnCount = columns.length
   const autoMode = autoViewMode(size.width, Math.max(1, columnCount))
   const viewMode: ViewMode = modeOverride ?? autoMode
@@ -230,6 +234,13 @@ export function App(props: Props) {
       }
       return
     }
+    if (input === 's') {
+      const idx = SORT_KEYS.indexOf(sortKey)
+      const next = SORT_KEYS[(idx + 1) % SORT_KEYS.length]!
+      setSortKey(next)
+      showFlash(`sort: ${sortLabel(next)}`)
+      return
+    }
     if (input === 'n') {
       setDraftInput('')
       return
@@ -364,6 +375,7 @@ export function App(props: Props) {
         loading={loading}
         error={error}
         mode={hint}
+        sort={sortKey}
         detailOpen={showDetail}
         filter={filter}
         filterInput={filterDraft}

@@ -16,6 +16,8 @@ export interface BaseContent {
   url?: string
   state?: string
   body?: string
+  createdAt?: string
+  updatedAt?: string
   assignees: Assignee[]
   labels: Label[]
 }

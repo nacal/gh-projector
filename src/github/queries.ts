@@ -65,6 +65,8 @@ export const PROJECT_ITEMS_QUERY = /* GraphQL */ `
               ... on DraftIssue {
                 title
                 body
+                createdAt
+                updatedAt
                 assignees(first: 10) {
                   nodes {
                     login
@@ -77,6 +79,8 @@ export const PROJECT_ITEMS_QUERY = /* GraphQL */ `
                 url
                 state
                 body
+                createdAt
+                updatedAt
                 assignees(first: 10) {
                   nodes {
                     login
@@ -95,6 +99,8 @@ export const PROJECT_ITEMS_QUERY = /* GraphQL */ `
                 url
                 state
                 body
+                createdAt
+                updatedAt
                 assignees(first: 10) {
                   nodes {
                     login
