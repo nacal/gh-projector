@@ -165,3 +165,40 @@ export const PROJECT_ITEMS_QUERY = /* GraphQL */ `
     }
   }
 `
+
+export const UPDATE_ITEM_FIELD_VALUE_MUTATION = /* GraphQL */ `
+  mutation UpdateItemFieldValue($projectId: ID!, $itemId: ID!, $fieldId: ID!, $optionId: String!) {
+    updateProjectV2ItemFieldValue(
+      input: {
+        projectId: $projectId
+        itemId: $itemId
+        fieldId: $fieldId
+        value: { singleSelectOptionId: $optionId }
+      }
+    ) {
+      projectV2Item {
+        id
+      }
+    }
+  }
+`
+
+export const ADD_DRAFT_ISSUE_MUTATION = /* GraphQL */ `
+  mutation AddDraftIssue($projectId: ID!, $title: String!, $body: String) {
+    addProjectV2DraftIssue(input: { projectId: $projectId, title: $title, body: $body }) {
+      projectItem {
+        id
+      }
+    }
+  }
+`
+
+export const ARCHIVE_ITEM_MUTATION = /* GraphQL */ `
+  mutation ArchiveItem($projectId: ID!, $itemId: ID!) {
+    archiveProjectV2Item(input: { projectId: $projectId, itemId: $itemId }) {
+      item {
+        id
+      }
+    }
+  }
+`

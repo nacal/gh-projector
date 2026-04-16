@@ -1,5 +1,7 @@
 import { useCallback, useEffect, useRef, useState } from 'react'
+import type { GraphQLClient } from '../github/client'
 import { createClient } from '../github/client'
+import { addDraftIssue, archiveItem, updateItemStatus } from '../github/mutations'
 import { fetchProject } from '../github/project'
 import type { ProjectSnapshot } from '../types'
 
@@ -16,6 +18,9 @@ interface State {
   loading: boolean
   error: string | null
   reload: () => void
+  moveItem: (itemId: string, targetOptionId: string) => Promise<void>
+  createDraft: (title: string, body?: string) => Promise<void>
+  archiveItem: (itemId: string) => Promise<void>
 }
 
 export function useProject({
@@ -30,6 +35,7 @@ export function useProject({
   const [error, setError] = useState<string | null>(null)
   const [tick, setTick] = useState(0)
   const inFlightRef = useRef(false)
+  const clientRef = useRef<GraphQLClient | null>(null)
 
   const reload = useCallback(() => {
     setTick((t) => t + 1)
@@ -44,6 +50,7 @@ export function useProject({
       setLoading(true)
       try {
         const client = await createClient(host)
+        clientRef.current = client
         const snap = await fetchProject(client, owner, number, columnField)
         if (!cancelled) {
           setSnapshot(snap)
@@ -68,5 +75,84 @@ export function useProject({
     return () => clearInterval(id)
   }, [refreshIntervalSeconds, reload])
 
-  return { snapshot, loading, error, reload }
+  const moveItem = useCallback(
+    async (itemId: string, targetOptionId: string) => {
+      const client = clientRef.current
+      const snap = snapshot
+      if (!client || !snap) return
+
+      // optimistic update
+      setSnapshot((prev) => {
+        if (!prev) return prev
+        return {
+          ...prev,
+          items: prev.items.map((it) =>
+            it.id === itemId
+              ? {
+                  ...it,
+                  statusOptionId: targetOptionId,
+                  statusName: prev.columns.find((c) => c.id === targetOptionId)?.name ?? null,
+                }
+              : it,
+          ),
+        }
+      })
+
+      try {
+        await updateItemStatus(client, snap.projectId, itemId, snap.columnFieldId, targetOptionId)
+      } catch (e) {
+        setError((e as Error).message)
+        // rollback
+        setSnapshot(snap)
+      }
+    },
+    [snapshot],
+  )
+
+  const createDraft = useCallback(
+    async (title: string, body?: string) => {
+      const client = clientRef.current
+      const snap = snapshot
+      if (!client || !snap) return
+      try {
+        await addDraftIssue(client, snap.projectId, title, body)
+        reload()
+      } catch (e) {
+        setError((e as Error).message)
+      }
+    },
+    [snapshot, reload],
+  )
+
+  const doArchiveItem = useCallback(
+    async (itemId: string) => {
+      const client = clientRef.current
+      const snap = snapshot
+      if (!client || !snap) return
+
+      // optimistic remove
+      setSnapshot((prev) => {
+        if (!prev) return prev
+        return { ...prev, items: prev.items.filter((it) => it.id !== itemId) }
+      })
+
+      try {
+        await archiveItem(client, snap.projectId, itemId)
+      } catch (e) {
+        setError((e as Error).message)
+        setSnapshot(snap)
+      }
+    },
+    [snapshot],
+  )
+
+  return {
+    snapshot,
+    loading,
+    error,
+    reload,
+    moveItem,
+    createDraft,
+    archiveItem: doArchiveItem,
+  }
 }

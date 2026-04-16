@@ -32,9 +32,13 @@ gh projector
 | `←` / `h`, `→` / `l` | Move between columns |
 | `↑` / `k`, `↓` / `j` | Move between items (scroll body in detail view) |
 | `Enter` / `d` | Open detail view |
+| `>` / `<` | Move item to next / previous status column |
 | `/` | Filter items by title / assignee / label |
 | `Esc` | Close detail view / help / clear filter |
 | `o` | Open selected item in browser |
+| `y` | Copy item URL to clipboard |
+| `n` | Create new draft issue |
+| `x` | Archive item (with confirmation) |
 | `v` | Toggle board / tabs layout |
 | `r` | Reload |
 | `?` | Toggle help |

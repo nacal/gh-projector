@@ -1,11 +1,12 @@
 import { Box, Text, useApp, useInput, useStdout } from 'ink'
-import { useEffect, useMemo, useRef, useState } from 'react'
-import { Board, groupItems } from './components/Board'
+import { useCallback, useEffect, useMemo, useRef, useState } from 'react'
+import { Board, NO_STATUS_ID, groupItems } from './components/Board'
 import { DetailView } from './components/DetailView'
 import { Help } from './components/Help'
 import { StatusBar } from './components/StatusBar'
 import { TabsView } from './components/TabsView'
 import { useProject } from './hooks/useProject'
+import { copyToClipboard } from './utils/clipboard'
 import { applyFilter } from './utils/filter'
 import { openUrl } from './utils/open'
 
@@ -42,7 +43,7 @@ export function App(props: Props) {
     }
   }, [stdout])
 
-  const { snapshot, loading, error, reload } = useProject(props)
+  const { snapshot, loading, error, reload, moveItem, createDraft, archiveItem } = useProject(props)
   const [columnIndex, setColumnIndex] = useState(0)
   const [itemIndex, setItemIndex] = useState(0)
   const [showHelp, setShowHelp] = useState(false)
@@ -51,6 +52,9 @@ export function App(props: Props) {
   const [modeOverride, setModeOverride] = useState<ViewMode | null>(null)
   const [filter, setFilter] = useState('')
   const [filterDraft, setFilterDraft] = useState<string | null>(null)
+  const [draftInput, setDraftInput] = useState<string | null>(null)
+  const [confirmArchive, setConfirmArchive] = useState(false)
+  const [flash, setFlash] = useState<string | null>(null)
   const userToggled = useRef(false)
 
   const filteredSnapshot = useMemo(
@@ -81,13 +85,59 @@ export function App(props: Props) {
   const currentCol = columns[columnIndex]
   const currentItem = currentCol?.items[itemIndex]
 
+  const showFlash = useCallback((msg: string) => {
+    setFlash(msg)
+    setTimeout(() => setFlash(null), 1500)
+  }, [])
+
+  // find original (unfiltered) column list for status moves
+  const allColumns = useMemo(() => (snapshot ? groupItems(snapshot) : []), [snapshot])
+
   useInput((input, key) => {
     if (key.ctrl && input === 'c') {
       exit()
       return
     }
 
-    // filter input mode — swallow most keys
+    // draft issue input mode
+    if (draftInput !== null) {
+      if (key.escape) {
+        setDraftInput(null)
+        return
+      }
+      if (key.return) {
+        const title = draftInput.trim()
+        if (title) {
+          createDraft(title)
+          showFlash(`Created draft: ${title}`)
+        }
+        setDraftInput(null)
+        return
+      }
+      if (key.backspace || key.delete) {
+        setDraftInput((d) => (d ?? '').slice(0, -1))
+        return
+      }
+      if (input && !key.ctrl && !key.meta) {
+        setDraftInput((d) => (d ?? '') + input)
+        return
+      }
+      return
+    }
+
+    // archive confirmation
+    if (confirmArchive) {
+      if (input === 'y' || input === 'Y') {
+        if (currentItem) {
+          archiveItem(currentItem.id)
+          showFlash('Archived')
+        }
+      }
+      setConfirmArchive(false)
+      return
+    }
+
+    // filter input mode
     if (filterDraft !== null) {
       if (key.escape) {
         setFilterDraft(null)
@@ -144,6 +194,11 @@ export function App(props: Props) {
         openUrl(currentItem.content.url)
         return
       }
+      if (input === 'y' && currentItem?.content.url) {
+        copyToClipboard(currentItem.content.url)
+        showFlash('URL copied')
+        return
+      }
       return
     }
 
@@ -168,6 +223,37 @@ export function App(props: Props) {
       if (currentItem?.content.url) openUrl(currentItem.content.url)
       return
     }
+    if (input === 'y') {
+      if (currentItem?.content.url) {
+        copyToClipboard(currentItem.content.url)
+        showFlash('URL copied')
+      }
+      return
+    }
+    if (input === 'n') {
+      setDraftInput('')
+      return
+    }
+    if (input === 'x') {
+      if (currentItem) setConfirmArchive(true)
+      return
+    }
+
+    // status move: > shifts right, < shifts left in the FULL column list
+    if (input === '>' || input === '<') {
+      if (!currentItem || !snapshot) return
+      const curOptId = currentItem.statusOptionId ?? NO_STATUS_ID
+      const allColIdx = allColumns.findIndex((c) => c.id === curOptId)
+      if (allColIdx === -1) return
+      const dir = input === '>' ? 1 : -1
+      const targetIdx = allColIdx + dir
+      const target = allColumns[targetIdx]
+      if (!target || target.id === NO_STATUS_ID) return
+      moveItem(currentItem.id, target.id)
+      showFlash(`→ ${target.name}`)
+      return
+    }
+
     if (key.return || input === 'd') {
       if (currentItem) {
         setBodyScroll(0)
@@ -249,6 +335,23 @@ export function App(props: Props) {
           width={size.width}
           height={boardHeight}
         />
+      )}
+      {draftInput !== null && (
+        <Box marginTop={1}>
+          <Text color="yellow">new draft: </Text>
+          <Text>{draftInput}</Text>
+          <Text dimColor>▌ (Enter to create, Esc to cancel)</Text>
+        </Box>
+      )}
+      {confirmArchive && (
+        <Box marginTop={1}>
+          <Text color="red">Archive "{currentItem?.content.title}"? (y/N)</Text>
+        </Box>
+      )}
+      {flash && (
+        <Box marginTop={1}>
+          <Text color="green">{flash}</Text>
+        </Box>
       )}
       <StatusBar
         projectTitle={snapshot.projectTitle}
