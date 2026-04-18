@@ -1,5 +1,6 @@
 import { Box, Text } from 'ink'
 import type { Item, SingleSelectFieldDef } from '../types'
+import { padEnd, truncateByWidth } from '../utils/string'
 
 interface Props {
   items: Item[]
@@ -38,15 +39,7 @@ function stateColor(state: string | undefined): string | undefined {
   return undefined
 }
 
-function truncate(s: string, max: number): string {
-  if (max <= 0) return ''
-  if (max <= 1) return s.slice(0, 1)
-  return s.length > max ? `${s.slice(0, max - 1)}…` : s
-}
-
-function pad(s: string, width: number): string {
-  return s.length >= width ? s.slice(0, width) : s + ' '.repeat(width - s.length)
-}
+// Use display-width-aware truncate and pad from utils/string
 
 interface ColDef {
   header: string
@@ -141,7 +134,7 @@ export function TableView({ items, selectedIndex, width, height, fields, columnF
         {cols.map((col) => (
           <Box key={col.header} width={col.width + 1}>
             <Text bold dimColor>
-              {pad(col.header, col.width)}
+              {padEnd(col.header, col.width)}
             </Text>
           </Box>
         ))}
@@ -166,12 +159,12 @@ export function TableView({ items, selectedIndex, width, height, fields, columnF
         return (
           <Box key={item.id}>
             {cols.map((col) => {
-              const val = truncate(col.getValue(item), col.width)
+              const val = truncateByWidth(col.getValue(item), col.width)
               const color = col.getColor?.(item)
               return (
                 <Box key={col.header} width={col.width + 1}>
                   <Text bold={selected} color={selected ? 'cyan' : color} inverse={selected}>
-                    {pad(val, col.width)}
+                    {padEnd(val, col.width)}
                   </Text>
                 </Box>
               )

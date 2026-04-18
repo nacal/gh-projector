@@ -1,5 +1,6 @@
 import { Box, Text } from 'ink'
 import type { Item } from '../types'
+import { padEnd, truncateByWidth } from '../utils/string'
 
 export type ZoomLevel = 'day' | 'week' | 'month'
 
@@ -58,14 +59,7 @@ function scrollStepDays(zoom: ZoomLevel): number {
   }
 }
 
-function truncate(s: string, max: number): string {
-  if (max <= 0) return ''
-  return s.length > max ? `${s.slice(0, max - 1)}…` : s
-}
-
-function pad(s: string, width: number): string {
-  return s.length >= width ? s.slice(0, width) : s + ' '.repeat(width - s.length)
-}
+// Use display-width-aware truncate and pad from utils/string
 
 function fmtShortDate(d: Date): string {
   return `${d.getMonth() + 1}/${d.getDate()}`
@@ -170,11 +164,11 @@ export function RoadmapView({
   return (
     <Box flexDirection="column" width={width} height={height}>
       <Box>
-        <Text dimColor>{pad('', labelWidth)} │</Text>
+        <Text dimColor>{padEnd('', labelWidth)} │</Text>
         <Text dimColor>{headerChars.join('')}</Text>
       </Box>
       <Box>
-        <Text dimColor>{pad('', labelWidth)} │</Text>
+        <Text dimColor>{padEnd('', labelWidth)} │</Text>
         <Text dimColor>{rulerChars.join('')}</Text>
       </Box>
 
@@ -183,11 +177,11 @@ export function RoadmapView({
       {visible.map((ri, i) => {
         const absIndex = start + i
         const selected = absIndex === selectedIndex
-        const label = truncate(
+        const label = truncateByWidth(
           `${ri.item.content.number ? `#${ri.item.content.number} ` : ''}${ri.item.content.title}`,
           labelWidth,
         )
-        const status = truncate(
+        const status = truncateByWidth(
           ri.item.singleSelectValues[columnFieldId]?.optionName ?? '',
           statusWidth,
         )
@@ -224,13 +218,13 @@ export function RoadmapView({
         return (
           <Box key={ri.item.id}>
             <Text bold={selected} color={selected ? 'cyan' : undefined}>
-              {pad(label, labelWidth)}
+              {padEnd(label, labelWidth)}
             </Text>
             <Text dimColor> │</Text>
             <Text color={selected ? 'white' : barColor} dimColor={!ri.range}>
               {barChars.join('')}
             </Text>
-            <Text dimColor> {pad(status, statusWidth)}</Text>
+            <Text dimColor> {padEnd(status, statusWidth)}</Text>
           </Box>
         )
       })}
