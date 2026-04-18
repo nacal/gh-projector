@@ -4,10 +4,11 @@ import { Board, type ColumnGroup, NO_STATUS_ID, groupItems } from './components/
 import { DetailView } from './components/DetailView'
 import { Help } from './components/Help'
 import { StatusBar } from './components/StatusBar'
+import { TableView } from './components/TableView'
 import { TabsView } from './components/TabsView'
 import { ViewPicker } from './components/ViewPicker'
 import { useProject } from './hooks/useProject'
-import type { ProjectSnapshot, ProjectView, SingleSelectFieldDef } from './types'
+import type { Item, ProjectSnapshot, ProjectView, SingleSelectFieldDef } from './types'
 import { copyToClipboard } from './utils/clipboard'
 import { applyFilter } from './utils/filter'
 import { openUrl } from './utils/open'
@@ -130,11 +131,25 @@ export function App(props: Props) {
     [snapshot, columnField],
   )
 
+  // Flat sorted items for table layout
+  const tableItems: Item[] = useMemo(() => {
+    if (!filteredSnapshot) return []
+    return sortKey === 'manual'
+      ? filteredSnapshot.items
+      : sortItems(filteredSnapshot.items, sortKey)
+  }, [filteredSnapshot, sortKey])
+
+  const isTableLayout = activeView?.layout === 'TABLE_LAYOUT'
+
   const columnCount = columns.length
   const autoMode = autoViewMode(size.width, Math.max(1, columnCount))
   const viewMode: ViewMode = modeOverride ?? autoMode
 
   useEffect(() => {
+    if (isTableLayout) {
+      if (itemIndex >= tableItems.length) setItemIndex(Math.max(0, tableItems.length - 1))
+      return
+    }
     if (columns.length === 0) {
       setColumnIndex(0)
       setItemIndex(0)
@@ -145,10 +160,10 @@ export function App(props: Props) {
     if (col && itemIndex >= col.items.length) {
       setItemIndex(Math.max(0, col.items.length - 1))
     }
-  }, [columns, columnIndex, itemIndex])
+  }, [columns, columnIndex, itemIndex, isTableLayout, tableItems])
 
-  const currentCol = columns[columnIndex]
-  const currentItem = currentCol?.items[itemIndex]
+  const currentCol = isTableLayout ? null : columns[columnIndex]
+  const currentItem = isTableLayout ? tableItems[itemIndex] : currentCol?.items[itemIndex]
 
   const showFlash = useCallback((msg: string) => {
     setFlash(msg)
@@ -363,12 +378,12 @@ export function App(props: Props) {
       }
       return
     }
-    if (key.leftArrow || input === 'h') {
+    if (!isTableLayout && (key.leftArrow || input === 'h')) {
       setColumnIndex((i) => Math.max(0, i - 1))
       setItemIndex(0)
       return
     }
-    if (key.rightArrow || input === 'l') {
+    if (!isTableLayout && (key.rightArrow || input === 'l')) {
       setColumnIndex((i) => Math.min(Math.max(0, columns.length - 1), i + 1))
       setItemIndex(0)
       return
@@ -378,7 +393,11 @@ export function App(props: Props) {
       return
     }
     if (key.downArrow || input === 'j') {
-      const max = currentCol ? Math.max(0, currentCol.items.length - 1) : 0
+      const max = isTableLayout
+        ? Math.max(0, tableItems.length - 1)
+        : currentCol
+          ? Math.max(0, currentCol.items.length - 1)
+          : 0
       setItemIndex((i) => Math.min(max, i + 1))
       return
     }
@@ -405,7 +424,11 @@ export function App(props: Props) {
 
   if (!snapshot || !filteredSnapshot || !columnField) return null
 
-  const hint = viewMode === 'board' ? 'board' : `tabs${modeOverride ? '' : ' (auto)'}`
+  const hint = isTableLayout
+    ? 'table'
+    : viewMode === 'board'
+      ? 'board'
+      : `tabs${modeOverride ? '' : ' (auto)'}`
 
   return (
     <Box flexDirection="column" width={size.width}>
@@ -429,6 +452,15 @@ export function App(props: Props) {
           width={size.width}
           height={boardHeight}
           scrollOffset={bodyScroll}
+        />
+      ) : isTableLayout ? (
+        <TableView
+          items={tableItems}
+          selectedIndex={itemIndex}
+          width={size.width}
+          height={boardHeight}
+          fields={snapshot.fields}
+          columnFieldId={columnField.id}
         />
       ) : viewMode === 'board' ? (
         <Board
