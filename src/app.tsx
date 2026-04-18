@@ -386,7 +386,7 @@ export function App(props: Props) {
     // Roadmap-specific keys
     if (isRoadmapLayout) {
       if (key.leftArrow || input === 'h') {
-        setRoadmapScroll((s) => Math.max(0, s - 1))
+        setRoadmapScroll((s) => s - 1)
         return
       }
       if (key.rightArrow || input === 'l') {

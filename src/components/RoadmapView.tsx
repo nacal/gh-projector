@@ -9,9 +9,7 @@ interface Props {
   width: number
   height: number
   zoom: ZoomLevel
-  /** Scroll offset in zoom units from the left edge of the time range. */
   scrollOffset: number
-  /** Column field ID for status display. */
   columnFieldId: string
 }
 
@@ -19,6 +17,8 @@ interface DateRange {
   start: Date
   end: Date
 }
+
+const DAY_MS = 86400000
 
 function parseDateFields(item: Item): DateRange | null {
   const dates: string[] = []
@@ -31,43 +31,26 @@ function parseDateFields(item: Item): DateRange | null {
   dates.sort()
   const start = new Date(dates[0]!)
   const end =
-    dates.length >= 2
-      ? new Date(dates[dates.length - 1]!)
-      : new Date(start.getTime() + 7 * 86400000)
+    dates.length >= 2 ? new Date(dates[dates.length - 1]!) : new Date(start.getTime() + 7 * DAY_MS)
   if (Number.isNaN(start.getTime()) || Number.isNaN(end.getTime())) return null
   return { start, end: end >= start ? end : start }
 }
 
-function daysBetween(a: Date, b: Date): number {
-  return Math.round((b.getTime() - a.getTime()) / 86400000)
-}
-
-function fmtDate(d: Date): string {
-  return `${d.getMonth() + 1}/${d.getDate()}`
-}
-
-function fmtMonth(d: Date): string {
-  const months = [
-    'Jan',
-    'Feb',
-    'Mar',
-    'Apr',
-    'May',
-    'Jun',
-    'Jul',
-    'Aug',
-    'Sep',
-    'Oct',
-    'Nov',
-    'Dec',
-  ]
-  return `${months[d.getMonth()]} ${d.getFullYear()}`
-}
-
-function zoomDays(zoom: ZoomLevel): number {
+function viewportDays(zoom: ZoomLevel): number {
   switch (zoom) {
     case 'day':
-      return 1
+      return 30
+    case 'week':
+      return 90
+    case 'month':
+      return 365
+  }
+}
+
+function scrollStepDays(zoom: ZoomLevel): number {
+  switch (zoom) {
+    case 'day':
+      return 3
     case 'week':
       return 7
     case 'month':
@@ -84,6 +67,30 @@ function pad(s: string, width: number): string {
   return s.length >= width ? s.slice(0, width) : s + ' '.repeat(width - s.length)
 }
 
+function fmtShortDate(d: Date): string {
+  return `${d.getMonth() + 1}/${d.getDate()}`
+}
+
+const MONTH_NAMES = [
+  'Jan',
+  'Feb',
+  'Mar',
+  'Apr',
+  'May',
+  'Jun',
+  'Jul',
+  'Aug',
+  'Sep',
+  'Oct',
+  'Nov',
+  'Dec',
+]
+
+function dayToCol(day: Date, viewStart: Date, chartWidth: number, totalDays: number): number {
+  const d = (day.getTime() - viewStart.getTime()) / DAY_MS
+  return Math.round((d / totalDays) * chartWidth)
+}
+
 interface RoadmapItem {
   item: Item
   range: DateRange | null
@@ -98,66 +105,56 @@ export function RoadmapView({
   scrollOffset,
   columnFieldId,
 }: Props) {
-  const labelWidth = Math.min(30, Math.max(15, Math.floor(width * 0.2)))
-  const chartWidth = width - labelWidth - 3
+  const labelWidth = Math.min(28, Math.max(12, Math.floor(width * 0.2)))
+  const statusWidth = 12
+  const chartWidth = Math.max(10, width - labelWidth - statusWidth - 4)
+  const totalDays = viewportDays(zoom)
+  const stepDays = scrollStepDays(zoom)
 
   const roadmapItems: RoadmapItem[] = items.map((item) => ({
     item,
     range: parseDateFields(item),
   }))
 
-  // Determine time range from all items with dates
-  const allDates = roadmapItems
-    .filter((r) => r.range)
-    .flatMap((r) => [r.range!.start.getTime(), r.range!.end.getTime()])
-
   const today = new Date()
   today.setHours(0, 0, 0, 0)
 
-  if (allDates.length === 0) allDates.push(today.getTime())
+  // Viewport start: today + scrollOffset * stepDays (negative = past)
+  const viewStart = new Date(today.getTime() + scrollOffset * stepDays * DAY_MS)
+  const viewEnd = new Date(viewStart.getTime() + totalDays * DAY_MS)
 
-  const globalStart = new Date(Math.min(...allDates, today.getTime()))
-  globalStart.setHours(0, 0, 0, 0)
+  // Build header with month labels at boundaries
+  const headerChars: string[] = Array.from({ length: chartWidth }, () => ' ')
+  const rulerChars: string[] = Array.from({ length: chartWidth }, () => '─')
 
-  const daysPerCell = zoomDays(zoom)
-  const viewStartDay = scrollOffset * daysPerCell
-  const viewStart = new Date(globalStart.getTime() + viewStartDay * 86400000)
-
-  // Header: date labels across the chart area
-  const headerLabels: string[] = []
-  for (let col = 0; col < chartWidth; col++) {
-    const d = new Date(viewStart.getTime() + col * daysPerCell * 86400000)
-    if (zoom === 'day' && col % 7 === 0) {
-      headerLabels.push(fmtDate(d))
-    } else if (zoom === 'week' && col % 4 === 0) {
-      headerLabels.push(fmtDate(d))
-    } else if (zoom === 'month' && col % 3 === 0) {
-      headerLabels.push(fmtMonth(d))
+  // Place month labels
+  const firstMonth = new Date(viewStart.getFullYear(), viewStart.getMonth(), 1)
+  const cursor = new Date(firstMonth)
+  while (cursor <= viewEnd) {
+    const col = dayToCol(cursor, viewStart, chartWidth, totalDays)
+    if (col >= 0 && col < chartWidth) {
+      const yr = cursor.getFullYear()
+      const label =
+        zoom === 'month'
+          ? `${MONTH_NAMES[cursor.getMonth()]} ${yr}`
+          : `${MONTH_NAMES[cursor.getMonth()]}${cursor.getMonth() === 0 ? ` ${yr}` : ''}`
+      for (let i = 0; i < label.length && col + i < chartWidth; i++) {
+        headerChars[col + i] = label[i]!
+      }
+      rulerChars[col] = '┬'
     }
+    cursor.setMonth(cursor.getMonth() + 1)
   }
 
-  // Build header string
-  let headerStr = ''
-  for (let col = 0; col < chartWidth; col++) {
-    const d = new Date(viewStart.getTime() + col * daysPerCell * 86400000)
-    let label = ''
-    if (zoom === 'day' && col % 7 === 0) label = fmtDate(d)
-    else if (zoom === 'week' && col % 4 === 0) label = fmtDate(d)
-    else if (zoom === 'month' && col % 3 === 0) label = fmtMonth(d)
+  // Today marker
+  const todayCol = dayToCol(today, viewStart, chartWidth, totalDays)
 
-    if (label) {
-      headerStr += label
-      col += label.length - 1
-    } else {
-      headerStr += ' '
-    }
+  if (todayCol >= 0 && todayCol < chartWidth) {
+    rulerChars[todayCol] = '▼'
   }
-
-  // Today marker column
-  const todayCol = Math.floor(daysBetween(viewStart, today) / daysPerCell)
 
   // Windowed scrolling
-  const maxVisibleRows = Math.max(1, height - 4)
+  const maxVisibleRows = Math.max(1, height - 5)
   let start = 0
   if (roadmapItems.length > maxVisibleRows) {
     start = Math.max(
@@ -172,19 +169,15 @@ export function RoadmapView({
 
   return (
     <Box flexDirection="column" width={width} height={height}>
-      {/* Header */}
       <Box>
-        <Text dimColor>{pad('', labelWidth)} </Text>
-        <Text dimColor>{truncate(headerStr, chartWidth)}</Text>
+        <Text dimColor>{pad('', labelWidth)} │</Text>
+        <Text dimColor>{headerChars.join('')}</Text>
       </Box>
       <Box>
-        <Text dimColor>{pad('', labelWidth)} </Text>
-        <Text dimColor>
-          {Array.from({ length: chartWidth }, (_, i) => (i === todayCol ? '▼' : '─')).join('')}
-        </Text>
+        <Text dimColor>{pad('', labelWidth)} │</Text>
+        <Text dimColor>{rulerChars.join('')}</Text>
       </Box>
 
-      {/* Rows */}
       {roadmapItems.length === 0 && <Text dimColor>(no items)</Text>}
       {start > 0 && <Text dimColor>↑ {start} more</Text>}
       {visible.map((ri, i) => {
@@ -194,26 +187,31 @@ export function RoadmapView({
           `${ri.item.content.number ? `#${ri.item.content.number} ` : ''}${ri.item.content.title}`,
           labelWidth,
         )
-        const status = ri.item.singleSelectValues[columnFieldId]?.optionName ?? ''
+        const status = truncate(
+          ri.item.singleSelectValues[columnFieldId]?.optionName ?? '',
+          statusWidth,
+        )
 
         // Build bar
-        let bar = ''
+        const barChars: string[] = Array.from({ length: chartWidth }, () => ' ')
+
+        // Today line
+        if (todayCol >= 0 && todayCol < chartWidth) {
+          barChars[todayCol] = '│'
+        }
+
         if (ri.range) {
-          const barStart = Math.floor(daysBetween(viewStart, ri.range.start) / daysPerCell)
-          const barEnd = Math.floor(daysBetween(viewStart, ri.range.end) / daysPerCell)
-          for (let col = 0; col < chartWidth; col++) {
+          const barStart = Math.max(0, dayToCol(ri.range.start, viewStart, chartWidth, totalDays))
+          const barEnd = Math.min(
+            chartWidth - 1,
+            dayToCol(ri.range.end, viewStart, chartWidth, totalDays),
+          )
+          for (let col = barStart; col <= barEnd; col++) {
             if (col === todayCol) {
-              bar += col >= barStart && col <= barEnd ? '┃' : '│'
-            } else if (col >= barStart && col <= barEnd) {
-              bar += '█'
+              barChars[col] = '┃'
             } else {
-              bar += ' '
+              barChars[col] = '█'
             }
-          }
-        } else {
-          // No date range
-          for (let col = 0; col < chartWidth; col++) {
-            bar += col === todayCol ? '│' : ' '
           }
         }
 
@@ -228,11 +226,11 @@ export function RoadmapView({
             <Text bold={selected} color={selected ? 'cyan' : undefined}>
               {pad(label, labelWidth)}
             </Text>
-            <Text dimColor> </Text>
+            <Text dimColor> │</Text>
             <Text color={selected ? 'white' : barColor} dimColor={!ri.range}>
-              {bar}
+              {barChars.join('')}
             </Text>
-            {status && <Text dimColor> {truncate(status, 12)}</Text>}
+            <Text dimColor> {pad(status, statusWidth)}</Text>
           </Box>
         )
       })}
@@ -240,10 +238,10 @@ export function RoadmapView({
         <Text dimColor>↓ {roadmapItems.length - (start + visible.length)} more</Text>
       )}
 
-      {/* Footer */}
       <Box marginTop={1}>
         <Text dimColor>
-          zoom: {zoom} · today: {fmtDate(today)} · +/- zoom · ←/→ scroll · t today
+          zoom: {zoom} ({totalDays}d) · ←/→ scroll · +/- zoom · t today · today:{' '}
+          {fmtShortDate(today)}
         </Text>
       </Box>
     </Box>
