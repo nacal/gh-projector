@@ -3,6 +3,7 @@ import { useCallback, useEffect, useMemo, useRef, useState } from 'react'
 import { Board, type ColumnGroup, NO_STATUS_ID, groupItems } from './components/Board'
 import { DetailView } from './components/DetailView'
 import { Help } from './components/Help'
+import { RoadmapView, type ZoomLevel } from './components/RoadmapView'
 import { StatusBar } from './components/StatusBar'
 import { TableView } from './components/TableView'
 import { TabsView } from './components/TabsView'
@@ -93,6 +94,8 @@ export function App(props: Props) {
   const [activeViewId, setActiveViewId] = useState<string | null>(null)
   const [viewPickerOpen, setViewPickerOpen] = useState(false)
   const [viewPickerIndex, setViewPickerIndex] = useState(0)
+  const [roadmapZoom, setRoadmapZoom] = useState<ZoomLevel>('week')
+  const [roadmapScroll, setRoadmapScroll] = useState(0)
   const userToggled = useRef(false)
   const initializedViewRef = useRef(false)
 
@@ -140,13 +143,15 @@ export function App(props: Props) {
   }, [filteredSnapshot, sortKey])
 
   const isTableLayout = activeView?.layout === 'TABLE_LAYOUT'
+  const isRoadmapLayout = activeView?.layout === 'ROADMAP_LAYOUT'
+  const isFlatLayout = isTableLayout || isRoadmapLayout
 
   const columnCount = columns.length
   const autoMode = autoViewMode(size.width, Math.max(1, columnCount))
   const viewMode: ViewMode = modeOverride ?? autoMode
 
   useEffect(() => {
-    if (isTableLayout) {
+    if (isFlatLayout) {
       if (itemIndex >= tableItems.length) setItemIndex(Math.max(0, tableItems.length - 1))
       return
     }
@@ -160,10 +165,10 @@ export function App(props: Props) {
     if (col && itemIndex >= col.items.length) {
       setItemIndex(Math.max(0, col.items.length - 1))
     }
-  }, [columns, columnIndex, itemIndex, isTableLayout, tableItems])
+  }, [columns, columnIndex, itemIndex, isFlatLayout, tableItems])
 
-  const currentCol = isTableLayout ? null : columns[columnIndex]
-  const currentItem = isTableLayout ? tableItems[itemIndex] : currentCol?.items[itemIndex]
+  const currentCol = isFlatLayout ? null : columns[columnIndex]
+  const currentItem = isFlatLayout ? tableItems[itemIndex] : currentCol?.items[itemIndex]
 
   const showFlash = useCallback((msg: string) => {
     setFlash(msg)
@@ -378,12 +383,46 @@ export function App(props: Props) {
       }
       return
     }
-    if (!isTableLayout && (key.leftArrow || input === 'h')) {
+    // Roadmap-specific keys
+    if (isRoadmapLayout) {
+      if (key.leftArrow || input === 'h') {
+        setRoadmapScroll((s) => Math.max(0, s - 1))
+        return
+      }
+      if (key.rightArrow || input === 'l') {
+        setRoadmapScroll((s) => s + 1)
+        return
+      }
+      if (input === '+' || input === '=') {
+        const zoomOrder: ZoomLevel[] = ['month', 'week', 'day']
+        const idx = zoomOrder.indexOf(roadmapZoom)
+        if (idx < zoomOrder.length - 1) {
+          setRoadmapZoom(zoomOrder[idx + 1]!)
+          showFlash(`zoom: ${zoomOrder[idx + 1]}`)
+        }
+        return
+      }
+      if (input === '-') {
+        const zoomOrder: ZoomLevel[] = ['month', 'week', 'day']
+        const idx = zoomOrder.indexOf(roadmapZoom)
+        if (idx > 0) {
+          setRoadmapZoom(zoomOrder[idx - 1]!)
+          showFlash(`zoom: ${zoomOrder[idx - 1]}`)
+        }
+        return
+      }
+      if (input === 't') {
+        setRoadmapScroll(0)
+        showFlash('jumped to today')
+        return
+      }
+    }
+    if (!isFlatLayout && (key.leftArrow || input === 'h')) {
       setColumnIndex((i) => Math.max(0, i - 1))
       setItemIndex(0)
       return
     }
-    if (!isTableLayout && (key.rightArrow || input === 'l')) {
+    if (!isFlatLayout && (key.rightArrow || input === 'l')) {
       setColumnIndex((i) => Math.min(Math.max(0, columns.length - 1), i + 1))
       setItemIndex(0)
       return
@@ -393,7 +432,7 @@ export function App(props: Props) {
       return
     }
     if (key.downArrow || input === 'j') {
-      const max = isTableLayout
+      const max = isFlatLayout
         ? Math.max(0, tableItems.length - 1)
         : currentCol
           ? Math.max(0, currentCol.items.length - 1)
@@ -424,11 +463,13 @@ export function App(props: Props) {
 
   if (!snapshot || !filteredSnapshot || !columnField) return null
 
-  const hint = isTableLayout
-    ? 'table'
-    : viewMode === 'board'
-      ? 'board'
-      : `tabs${modeOverride ? '' : ' (auto)'}`
+  const hint = isRoadmapLayout
+    ? 'roadmap'
+    : isTableLayout
+      ? 'table'
+      : viewMode === 'board'
+        ? 'board'
+        : `tabs${modeOverride ? '' : ' (auto)'}`
 
   return (
     <Box flexDirection="column" width={size.width}>
@@ -452,6 +493,16 @@ export function App(props: Props) {
           width={size.width}
           height={boardHeight}
           scrollOffset={bodyScroll}
+        />
+      ) : isRoadmapLayout ? (
+        <RoadmapView
+          items={tableItems}
+          selectedIndex={itemIndex}
+          width={size.width}
+          height={boardHeight}
+          zoom={roadmapZoom}
+          scrollOffset={roadmapScroll}
+          columnFieldId={columnField.id}
         />
       ) : isTableLayout ? (
         <TableView

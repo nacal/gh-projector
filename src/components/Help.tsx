@@ -1,8 +1,10 @@
 import { Box, Text } from 'ink'
 
 const BINDINGS: [string, string][] = [
-  ['←/h, →/l', 'previous/next column'],
+  ['←/h, →/l', 'previous/next column (scroll time in roadmap)'],
   ['↑/k, ↓/j', 'previous/next item (scroll body in detail view)'],
+  ['+/-', 'zoom in/out (roadmap)'],
+  ['t', 'jump to today (roadmap)'],
   ['Enter, d', 'open detail view'],
   ['Esc', 'close detail / help / clear filter'],
   ['> / <', 'move item to next/previous status column'],
