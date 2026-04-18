@@ -118,6 +118,7 @@ interface RawItem {
     body?: string
     createdAt?: string
     updatedAt?: string
+    parentIssue?: { id: string; number: number; title: string } | null
     assignees?: { nodes: Assignee[] }
     labels?: { nodes: Label[] }
   } | null
@@ -136,6 +137,9 @@ function normalizeItem(raw: RawItem): Item | null {
     body: raw.content.body,
     createdAt: raw.content.createdAt,
     updatedAt: raw.content.updatedAt,
+    parentId: raw.content.parentIssue?.id,
+    parentNumber: raw.content.parentIssue?.number,
+    parentTitle: raw.content.parentIssue?.title,
     assignees: raw.content.assignees?.nodes ?? [],
     labels: raw.content.labels?.nodes ?? [],
   }

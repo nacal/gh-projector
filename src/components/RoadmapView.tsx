@@ -12,6 +12,8 @@ interface Props {
   zoom: ZoomLevel
   scrollOffset: number
   columnFieldId: string
+  collapsedGroups: Set<string>
+  onToggleCollapse: (groupId: string) => void
 }
 
 interface DateRange {
@@ -59,8 +61,6 @@ function scrollStepDays(zoom: ZoomLevel): number {
   }
 }
 
-// Use display-width-aware truncate and pad from utils/string
-
 function fmtShortDate(d: Date): string {
   return `${d.getMonth() + 1}/${d.getDate()}`
 }
@@ -85,9 +85,134 @@ function dayToCol(day: Date, viewStart: Date, chartWidth: number, totalDays: num
   return Math.round((d / totalDays) * chartWidth)
 }
 
-interface RoadmapItem {
+// Flattened row for rendering
+interface RoadmapRow {
   item: Item
   range: DateRange | null
+  indent: number
+  isGroupHeader: boolean
+  groupId: string | null
+  collapsed: boolean
+  /** For group headers: aggregated range from children. */
+  aggregateRange: DateRange | null
+}
+
+function buildRows(items: Item[], collapsedGroups: Set<string>): RoadmapRow[] {
+  // Group items by parentId
+  const childrenByParent = new Map<string, Item[]>()
+  const orphans: Item[] = []
+  const parentIds = new Set<string>()
+
+  // First pass: find which parentIds are present as items in the project
+  const itemIds = new Set(items.map((it) => it.id))
+  // Map content IDs (Issue node IDs) aren't the same as project item IDs.
+  // parentId references the Issue node ID, not the project item ID.
+  // So we need to match by content: parentId matches an item whose content has that ID.
+  // But we don't have Issue node IDs on items currently.
+  // Alternative: match by parentNumber — if item.content.number === child.parentNumber
+  const itemsByNumber = new Map<number, Item>()
+  for (const it of items) {
+    if (it.content.number !== undefined) {
+      itemsByNumber.set(it.content.number, it)
+    }
+  }
+
+  for (const it of items) {
+    const pNum = it.content.parentNumber
+    if (pNum !== undefined && itemsByNumber.has(pNum)) {
+      const parent = itemsByNumber.get(pNum)!
+      if (!childrenByParent.has(parent.id)) childrenByParent.set(parent.id, [])
+      childrenByParent.get(parent.id)!.push(it)
+      parentIds.add(parent.id)
+    } else if (
+      it.content.parentNumber !== undefined &&
+      !itemsByNumber.has(it.content.parentNumber)
+    ) {
+      // Parent exists but not in project — treat as orphan with indent hint
+      orphans.push(it)
+    } else {
+      orphans.push(it)
+    }
+  }
+
+  const rows: RoadmapRow[] = []
+
+  // Emit parents first (with their children), then orphans
+  for (const parentItem of items) {
+    if (!parentIds.has(parentItem.id)) continue
+    const children = childrenByParent.get(parentItem.id) ?? []
+    const collapsed = collapsedGroups.has(parentItem.id)
+
+    // Compute aggregate range from children + parent
+    const allRanges = [parentItem, ...children]
+      .map(parseDateFields)
+      .filter((r): r is DateRange => r !== null)
+    let aggRange: DateRange | null = null
+    if (allRanges.length > 0) {
+      const minStart = new Date(Math.min(...allRanges.map((r) => r.start.getTime())))
+      const maxEnd = new Date(Math.max(...allRanges.map((r) => r.end.getTime())))
+      aggRange = { start: minStart, end: maxEnd }
+    }
+
+    rows.push({
+      item: parentItem,
+      range: parseDateFields(parentItem),
+      indent: 0,
+      isGroupHeader: true,
+      groupId: parentItem.id,
+      collapsed,
+      aggregateRange: aggRange,
+    })
+
+    if (!collapsed) {
+      for (const child of children) {
+        rows.push({
+          item: child,
+          range: parseDateFields(child),
+          indent: 1,
+          isGroupHeader: false,
+          groupId: parentItem.id,
+          collapsed: false,
+          aggregateRange: null,
+        })
+      }
+    }
+  }
+
+  // Orphans (no parent in project, not a parent themselves)
+  for (const it of orphans) {
+    if (parentIds.has(it.id)) continue // already rendered as parent
+    rows.push({
+      item: it,
+      range: parseDateFields(it),
+      indent: 0,
+      isGroupHeader: false,
+      groupId: null,
+      collapsed: false,
+      aggregateRange: null,
+    })
+  }
+
+  return rows
+}
+
+function buildBar(
+  range: DateRange | null,
+  chartWidth: number,
+  todayCol: number,
+  viewStart: Date,
+  totalDays: number,
+): string[] {
+  const barChars: string[] = Array.from({ length: chartWidth }, () => ' ')
+  if (todayCol >= 0 && todayCol < chartWidth) barChars[todayCol] = '│'
+  if (range) {
+    const barStart = Math.max(0, dayToCol(range.start, viewStart, chartWidth, totalDays))
+    const barEnd = Math.min(chartWidth - 1, dayToCol(range.end, viewStart, chartWidth, totalDays))
+    for (let col = barStart; col <= barEnd; col++) {
+      barChars[col] = col === todayCol ? '┃' : '█'
+    }
+  }
+  return barChars
 }
 
 export function RoadmapView({
@@ -98,6 +223,7 @@ export function RoadmapView({
   zoom,
   scrollOffset,
   columnFieldId,
+  collapsedGroups,
 }: Props) {
   const labelWidth = Math.min(28, Math.max(12, Math.floor(width * 0.2)))
   const statusWidth = 12
@@ -105,23 +231,18 @@ export function RoadmapView({
   const totalDays = viewportDays(zoom)
   const stepDays = scrollStepDays(zoom)
 
-  const roadmapItems: RoadmapItem[] = items.map((item) => ({
-    item,
-    range: parseDateFields(item),
-  }))
-
   const today = new Date()
   today.setHours(0, 0, 0, 0)
 
-  // Viewport start: today + scrollOffset * stepDays (negative = past)
   const viewStart = new Date(today.getTime() + scrollOffset * stepDays * DAY_MS)
   const viewEnd = new Date(viewStart.getTime() + totalDays * DAY_MS)
 
-  // Build header with month labels at boundaries
+  const rows = buildRows(items, collapsedGroups)
+
+  // Header
   const headerChars: string[] = Array.from({ length: chartWidth }, () => ' ')
   const rulerChars: string[] = Array.from({ length: chartWidth }, () => '─')
 
-  // Place month labels
   const firstMonth = new Date(viewStart.getFullYear(), viewStart.getMonth(), 1)
   const cursor = new Date(firstMonth)
   while (cursor <= viewEnd) {
@@ -140,26 +261,19 @@ export function RoadmapView({
     cursor.setMonth(cursor.getMonth() + 1)
   }
 
-  // Today marker
   const todayCol = dayToCol(today, viewStart, chartWidth, totalDays)
-
-  if (todayCol >= 0 && todayCol < chartWidth) {
-    rulerChars[todayCol] = '▼'
-  }
+  if (todayCol >= 0 && todayCol < chartWidth) rulerChars[todayCol] = '▼'
 
   // Windowed scrolling
   const maxVisibleRows = Math.max(1, height - 5)
   let start = 0
-  if (roadmapItems.length > maxVisibleRows) {
+  if (rows.length > maxVisibleRows) {
     start = Math.max(
       0,
-      Math.min(
-        roadmapItems.length - maxVisibleRows,
-        selectedIndex - Math.floor(maxVisibleRows / 2),
-      ),
+      Math.min(rows.length - maxVisibleRows, selectedIndex - Math.floor(maxVisibleRows / 2)),
     )
   }
-  const visible = roadmapItems.slice(start, start + maxVisibleRows)
+  const visible = rows.slice(start, start + maxVisibleRows)
 
   return (
     <Box flexDirection="column" width={width} height={height}>
@@ -172,69 +286,53 @@ export function RoadmapView({
         <Text dimColor>{rulerChars.join('')}</Text>
       </Box>
 
-      {roadmapItems.length === 0 && <Text dimColor>(no items)</Text>}
+      {rows.length === 0 && <Text dimColor>(no items)</Text>}
       {start > 0 && <Text dimColor>↑ {start} more</Text>}
-      {visible.map((ri, i) => {
+      {visible.map((row, i) => {
         const absIndex = start + i
         const selected = absIndex === selectedIndex
-        const label = truncateByWidth(
-          `${ri.item.content.number ? `#${ri.item.content.number} ` : ''}${ri.item.content.title}`,
-          labelWidth,
-        )
+        const indentStr = row.indent > 0 ? '  '.repeat(row.indent) : ''
+        const collapseIcon = row.isGroupHeader ? (row.collapsed ? '▶ ' : '▼ ') : ''
+        const prefix = `${indentStr}${collapseIcon}`
+        const titleText = `${row.item.content.number ? `#${row.item.content.number} ` : ''}${row.item.content.title}`
+        const label = truncateByWidth(`${prefix}${titleText}`, labelWidth)
         const status = truncateByWidth(
-          ri.item.singleSelectValues[columnFieldId]?.optionName ?? '',
+          row.item.singleSelectValues[columnFieldId]?.optionName ?? '',
           statusWidth,
         )
 
-        // Build bar
-        const barChars: string[] = Array.from({ length: chartWidth }, () => ' ')
+        // Group headers show aggregate range as lighter bar
+        const displayRange = row.isGroupHeader ? (row.aggregateRange ?? row.range) : row.range
+        const barChars = buildBar(displayRange, chartWidth, todayCol, viewStart, totalDays)
 
-        // Today line
-        if (todayCol >= 0 && todayCol < chartWidth) {
-          barChars[todayCol] = '│'
-        }
-
-        if (ri.range) {
-          const barStart = Math.max(0, dayToCol(ri.range.start, viewStart, chartWidth, totalDays))
-          const barEnd = Math.min(
-            chartWidth - 1,
-            dayToCol(ri.range.end, viewStart, chartWidth, totalDays),
-          )
-          for (let col = barStart; col <= barEnd; col++) {
-            if (col === todayCol) {
-              barChars[col] = '┃'
-            } else {
-              barChars[col] = '█'
-            }
-          }
-        }
-
-        const barColor = ri.range
-          ? ri.item.content.state === 'CLOSED' || ri.item.content.state === 'MERGED'
-            ? 'gray'
-            : 'cyan'
+        const barColor = displayRange
+          ? row.isGroupHeader
+            ? 'blue'
+            : row.item.content.state === 'CLOSED' || row.item.content.state === 'MERGED'
+              ? 'gray'
+              : 'cyan'
           : undefined
 
         return (
-          <Box key={ri.item.id}>
-            <Text bold={selected} color={selected ? 'cyan' : undefined}>
+          <Box key={`${row.item.id}-${row.indent}`}>
+            <Text bold={selected || row.isGroupHeader} color={selected ? 'cyan' : undefined}>
               {padEnd(label, labelWidth)}
             </Text>
             <Text dimColor> │</Text>
-            <Text color={selected ? 'white' : barColor} dimColor={!ri.range}>
+            <Text color={selected ? 'white' : barColor} dimColor={!displayRange}>
               {barChars.join('')}
             </Text>
             <Text dimColor> {padEnd(status, statusWidth)}</Text>
           </Box>
         )
       })}
-      {start + visible.length < roadmapItems.length && (
-        <Text dimColor>↓ {roadmapItems.length - (start + visible.length)} more</Text>
+      {start + visible.length < rows.length && (
+        <Text dimColor>↓ {rows.length - (start + visible.length)} more</Text>
       )}
 
       <Box marginTop={1}>
         <Text dimColor>
-          zoom: {zoom} ({totalDays}d) · ←/→ scroll · +/- zoom · t today · today:{' '}
+          zoom: {zoom} ({totalDays}d) · ←/→ scroll · +/- zoom · t today · Tab fold · today:{' '}
           {fmtShortDate(today)}
         </Text>
       </Box>

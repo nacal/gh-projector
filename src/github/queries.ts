@@ -81,6 +81,11 @@ export const PROJECT_ITEMS_QUERY = /* GraphQL */ `
                 body
                 createdAt
                 updatedAt
+                parentIssue: parent {
+                  id
+                  number
+                  title
+                }
                 assignees(first: 10) {
                   nodes {
                     login

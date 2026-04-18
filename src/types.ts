@@ -18,6 +18,9 @@ export interface BaseContent {
   body?: string
   createdAt?: string
   updatedAt?: string
+  parentId?: string
+  parentNumber?: number
+  parentTitle?: string
   assignees: Assignee[]
   labels: Label[]
 }

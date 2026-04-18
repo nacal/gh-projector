@@ -96,6 +96,7 @@ export function App(props: Props) {
   const [viewPickerIndex, setViewPickerIndex] = useState(0)
   const [roadmapZoom, setRoadmapZoom] = useState<ZoomLevel>('week')
   const [roadmapScroll, setRoadmapScroll] = useState(0)
+  const [collapsedGroups, setCollapsedGroups] = useState<Set<string>>(new Set())
   const userToggled = useRef(false)
   const initializedViewRef = useRef(false)
 
@@ -416,6 +417,18 @@ export function App(props: Props) {
         showFlash('jumped to today')
         return
       }
+      if (key.tab && currentItem) {
+        setCollapsedGroups((prev) => {
+          const next = new Set(prev)
+          if (next.has(currentItem.id)) {
+            next.delete(currentItem.id)
+          } else {
+            next.add(currentItem.id)
+          }
+          return next
+        })
+        return
+      }
     }
     if (!isFlatLayout && (key.leftArrow || input === 'h')) {
       setColumnIndex((i) => Math.max(0, i - 1))
@@ -503,6 +516,15 @@ export function App(props: Props) {
           zoom={roadmapZoom}
           scrollOffset={roadmapScroll}
           columnFieldId={columnField.id}
+          collapsedGroups={collapsedGroups}
+          onToggleCollapse={(id) => {
+            setCollapsedGroups((prev) => {
+              const next = new Set(prev)
+              if (next.has(id)) next.delete(id)
+              else next.add(id)
+              return next
+            })
+          }}
         />
       ) : isTableLayout ? (
         <TableView
