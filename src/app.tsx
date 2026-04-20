@@ -389,17 +389,31 @@ export function App(props: Props) {
       return
     }
     // Tab: toggle collapse for parent issue groups (all layouts)
-    if (key.tab && currentItem) {
-      setCollapsedGroups((prev) => {
-        const next = new Set(prev)
-        if (next.has(currentItem.id)) {
-          next.delete(currentItem.id)
-        } else {
-          next.add(currentItem.id)
+    if (key.tab) {
+      // Find the current row's groupId for toggling
+      let toggleId: string | null = null
+      if (isFlatLayout) {
+        // Roadmap/table: no column-based rows, skip for now
+        // Roadmap has its own collapsedGroups handling
+        toggleId = currentItem?.id ?? null
+      } else if (currentCol) {
+        const currentRow = currentCol.rows[itemIndex]
+        if (currentRow?.isGroupHeader && currentRow.groupId) {
+          toggleId = currentRow.groupId
+        } else if (currentRow?.groupId) {
+          // On a child row: toggle the parent group
+          toggleId = currentRow.groupId
         }
-        return next
-      })
-      return
+      }
+      if (toggleId) {
+        setCollapsedGroups((prev) => {
+          const next = new Set(prev)
+          if (next.has(toggleId)) next.delete(toggleId)
+          else next.add(toggleId)
+          return next
+        })
+        return
+      }
     }
 
     // Roadmap-specific keys

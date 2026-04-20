@@ -7,13 +7,12 @@ export interface GroupedRow {
   groupId: string | null
   collapsed: boolean
   childCount: number
+  /** For virtual parent headers: the parent's number and title (when parent is not in project). */
+  virtualParentLabel: string | null
 }
 
 export function groupByParent(items: Item[], collapsedGroups: Set<string>): GroupedRow[] {
-  const childrenByParent = new Map<string, Item[]>()
-  const orphans: Item[] = []
-  const parentIds = new Set<string>()
-
+  // Build lookup of items by their issue number
   const itemsByNumber = new Map<number, Item>()
   for (const it of items) {
     if (it.content.number !== undefined) {
@@ -21,33 +20,59 @@ export function groupByParent(items: Item[], collapsedGroups: Set<string>): Grou
     }
   }
 
+  // Group children by parent number (not parent item ID)
+  // This works whether or not the parent is in the project
+  const childrenByParentNum = new Map<number, Item[]>()
+  const childItemIds = new Set<string>()
+
   for (const it of items) {
     const pNum = it.content.parentNumber
-    if (pNum !== undefined && itemsByNumber.has(pNum)) {
-      const parent = itemsByNumber.get(pNum)!
-      if (!childrenByParent.has(parent.id)) childrenByParent.set(parent.id, [])
-      childrenByParent.get(parent.id)!.push(it)
-      parentIds.add(parent.id)
-    } else {
-      orphans.push(it)
-    }
+    if (pNum === undefined) continue
+    if (!childrenByParentNum.has(pNum)) childrenByParentNum.set(pNum, [])
+    childrenByParentNum.get(pNum)!.push(it)
+    childItemIds.add(it.id)
   }
 
   const rows: GroupedRow[] = []
+  const emittedIds = new Set<string>()
 
-  for (const parentItem of items) {
-    if (!parentIds.has(parentItem.id)) continue
-    const children = childrenByParent.get(parentItem.id) ?? []
-    const collapsed = collapsedGroups.has(parentItem.id)
+  // Emit groups: for each unique parentNumber, emit a header + children
+  for (const [parentNum, children] of childrenByParentNum) {
+    if (children.length === 0) continue
+    const parentItem = itemsByNumber.get(parentNum)
+    const groupId = parentItem ? parentItem.id : `virtual-parent-${parentNum}`
+    const collapsed = collapsedGroups.has(groupId)
 
-    rows.push({
-      item: parentItem,
-      indent: 0,
-      isGroupHeader: true,
-      groupId: parentItem.id,
-      collapsed,
-      childCount: children.length,
-    })
+    if (parentItem) {
+      // Parent is in the project — use it as the header
+      rows.push({
+        item: parentItem,
+        indent: 0,
+        isGroupHeader: true,
+        groupId,
+        collapsed,
+        childCount: children.length,
+        virtualParentLabel: null,
+      })
+      emittedIds.add(parentItem.id)
+    } else {
+      // Parent is NOT in the project — create a virtual header using the first child's parentTitle
+      const firstChild = children[0]!
+      const label = firstChild.content.parentTitle
+        ? `#${parentNum} ${firstChild.content.parentTitle}`
+        : `#${parentNum}`
+      // Use first child as the "item" for the header row (for selection/navigation)
+      // but mark it as virtual
+      rows.push({
+        item: firstChild,
+        indent: 0,
+        isGroupHeader: true,
+        groupId,
+        collapsed,
+        childCount: children.length,
+        virtualParentLabel: label,
+      })
+    }
 
     if (!collapsed) {
       for (const child of children) {
@@ -55,16 +80,24 @@ export function groupByParent(items: Item[], collapsedGroups: Set<string>): Grou
           item: child,
           indent: 1,
           isGroupHeader: false,
-          groupId: parentItem.id,
+          groupId,
           collapsed: false,
           childCount: 0,
+          virtualParentLabel: null,
         })
+        emittedIds.add(child.id)
+      }
+    } else {
+      for (const child of children) {
+        emittedIds.add(child.id)
       }
     }
   }
 
-  for (const it of orphans) {
-    if (parentIds.has(it.id)) continue
+  // Orphans: items that have no parent and are not already emitted
+  for (const it of items) {
+    if (emittedIds.has(it.id)) continue
+    if (it.content.parentNumber !== undefined) continue // child of something, already handled
     rows.push({
       item: it,
       indent: 0,
@@ -72,6 +105,7 @@ export function groupByParent(items: Item[], collapsedGroups: Set<string>): Grou
       groupId: null,
       collapsed: false,
       childCount: 0,
+      virtualParentLabel: null,
     })
   }
 

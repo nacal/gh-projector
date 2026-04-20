@@ -47,6 +47,20 @@ export function Column({
         {visible.map((row, i) => {
           const absIndex = start + i
           const selected = focused && absIndex === selectedRowIndex
+
+          // Virtual parent header (parent not in project)
+          if (row.isGroupHeader && row.virtualParentLabel) {
+            return (
+              <Box key={`vp-${row.groupId}`} marginBottom={0}>
+                <Text color={selected ? 'cyan' : 'yellow'} bold>
+                  {row.collapsed ? '▶ ' : '▼ '}
+                  {row.virtualParentLabel}
+                </Text>
+                <Text dimColor> ({row.childCount})</Text>
+              </Box>
+            )
+          }
+
           const cardWidth = Math.max(1, width - 1 - row.indent * 2)
           return (
             <Box key={row.item.id} marginBottom={0} paddingLeft={row.indent * 2}>

@@ -59,6 +59,19 @@ export function TabsView({
         {visible.map((row, i) => {
           const absIndex = start + i
           const selected = absIndex === itemIndex
+
+          if (row.isGroupHeader && row.virtualParentLabel) {
+            return (
+              <Box key={`vp-${row.groupId}`}>
+                <Text color={selected ? 'cyan' : 'yellow'} bold>
+                  {row.collapsed ? '▶ ' : '▼ '}
+                  {row.virtualParentLabel}
+                </Text>
+                <Text dimColor> ({row.childCount})</Text>
+              </Box>
+            )
+          }
+
           return (
             <Box key={row.item.id} paddingLeft={row.indent * 2}>
               {row.isGroupHeader && (
