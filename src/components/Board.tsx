@@ -1,5 +1,6 @@
 import { Box } from 'ink'
 import type { Item, ProjectSnapshot, SingleSelectFieldDef } from '../types'
+import { type GroupedRow, groupByParent } from '../utils/grouping'
 import { Column } from './Column'
 
 export const NO_STATUS_ID = '__no_status__'
@@ -8,6 +9,7 @@ export interface ColumnGroup {
   id: string
   name: string
   items: Item[]
+  rows: GroupedRow[]
 }
 
 interface Props {
@@ -17,11 +19,13 @@ interface Props {
   itemIndex: number
   width: number
   height: number
+  collapsedGroups: Set<string>
 }
 
 export function groupItems(
   snapshot: ProjectSnapshot,
   columnField: SingleSelectFieldDef,
+  collapsedGroups: Set<string>,
 ): ColumnGroup[] {
   const byOption = new Map<string, Item[]>()
   for (const opt of columnField.options) byOption.set(opt.id, [])
@@ -34,19 +38,31 @@ export function groupItems(
       noStatus.push(item)
     }
   }
-  const cols: ColumnGroup[] = columnField.options.map((c) => ({
-    id: c.id,
-    name: c.name,
-    items: byOption.get(c.id) ?? [],
-  }))
+  const cols: ColumnGroup[] = columnField.options.map((c) => {
+    const items = byOption.get(c.id) ?? []
+    return { id: c.id, name: c.name, items, rows: groupByParent(items, collapsedGroups) }
+  })
   if (noStatus.length > 0) {
-    cols.push({ id: NO_STATUS_ID, name: 'No Status', items: noStatus })
+    cols.push({
+      id: NO_STATUS_ID,
+      name: 'No Status',
+      items: noStatus,
+      rows: groupByParent(noStatus, collapsedGroups),
+    })
   }
   return cols
 }
 
-export function Board({ snapshot, columnField, columnIndex, itemIndex, width, height }: Props) {
-  const cols = groupItems(snapshot, columnField)
+export function Board({
+  snapshot,
+  columnField,
+  columnIndex,
+  itemIndex,
+  width,
+  height,
+  collapsedGroups,
+}: Props) {
+  const cols = groupItems(snapshot, columnField, collapsedGroups)
   const colCount = Math.max(1, cols.length)
   const colWidth = Math.max(20, Math.floor((width - colCount) / colCount))
 
@@ -58,10 +74,10 @@ export function Board({ snapshot, columnField, columnIndex, itemIndex, width, he
         <Column
           key={col.id}
           name={col.name}
-          items={col.items}
+          rows={col.rows}
           width={colWidth}
           focused={i === columnIndex}
-          selectedItemIndex={i === columnIndex ? itemIndex : -1}
+          selectedRowIndex={i === columnIndex ? itemIndex : -1}
           maxVisibleItems={maxVisibleItems}
           singleSelectFields={snapshot.fields}
           columnFieldId={columnField.id}

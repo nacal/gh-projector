@@ -1,5 +1,6 @@
 import { Box, Text } from 'ink'
 import type { Item } from '../types'
+import { groupByParent } from '../utils/grouping'
 import { padEnd, truncateByWidth } from '../utils/string'
 
 export type ZoomLevel = 'day' | 'week' | 'month'
@@ -85,115 +86,14 @@ function dayToCol(day: Date, viewStart: Date, chartWidth: number, totalDays: num
   return Math.round((d / totalDays) * chartWidth)
 }
 
-// Flattened row for rendering
-interface RoadmapRow {
-  item: Item
-  range: DateRange | null
-  indent: number
-  isGroupHeader: boolean
-  groupId: string | null
-  collapsed: boolean
-  /** For group headers: aggregated range from children. */
-  aggregateRange: DateRange | null
-}
-
-function buildRows(items: Item[], collapsedGroups: Set<string>): RoadmapRow[] {
-  // Group items by parentId
-  const childrenByParent = new Map<string, Item[]>()
-  const orphans: Item[] = []
-  const parentIds = new Set<string>()
-
-  // First pass: find which parentIds are present as items in the project
-  const itemIds = new Set(items.map((it) => it.id))
-  // Map content IDs (Issue node IDs) aren't the same as project item IDs.
-  // parentId references the Issue node ID, not the project item ID.
-  // So we need to match by content: parentId matches an item whose content has that ID.
-  // But we don't have Issue node IDs on items currently.
-  // Alternative: match by parentNumber — if item.content.number === child.parentNumber
-  const itemsByNumber = new Map<number, Item>()
-  for (const it of items) {
-    if (it.content.number !== undefined) {
-      itemsByNumber.set(it.content.number, it)
-    }
+// Compute aggregate date range for a group header from parent + children
+function computeAggregateRange(items: Item[]): DateRange | null {
+  const allRanges = items.map(parseDateFields).filter((r): r is DateRange => r !== null)
+  if (allRanges.length === 0) return null
+  return {
+    start: new Date(Math.min(...allRanges.map((r) => r.start.getTime()))),
+    end: new Date(Math.max(...allRanges.map((r) => r.end.getTime()))),
   }
-
-  for (const it of items) {
-    const pNum = it.content.parentNumber
-    if (pNum !== undefined && itemsByNumber.has(pNum)) {
-      const parent = itemsByNumber.get(pNum)!
-      if (!childrenByParent.has(parent.id)) childrenByParent.set(parent.id, [])
-      childrenByParent.get(parent.id)!.push(it)
-      parentIds.add(parent.id)
-    } else if (
-      it.content.parentNumber !== undefined &&
-      !itemsByNumber.has(it.content.parentNumber)
-    ) {
-      // Parent exists but not in project — treat as orphan with indent hint
-      orphans.push(it)
-    } else {
-      orphans.push(it)
-    }
-  }
-
-  const rows: RoadmapRow[] = []
-
-  // Emit parents first (with their children), then orphans
-  for (const parentItem of items) {
-    if (!parentIds.has(parentItem.id)) continue
-    const children = childrenByParent.get(parentItem.id) ?? []
-    const collapsed = collapsedGroups.has(parentItem.id)
-
-    // Compute aggregate range from children + parent
-    const allRanges = [parentItem, ...children]
-      .map(parseDateFields)
-      .filter((r): r is DateRange => r !== null)
-    let aggRange: DateRange | null = null
-    if (allRanges.length > 0) {
-      const minStart = new Date(Math.min(...allRanges.map((r) => r.start.getTime())))
-      const maxEnd = new Date(Math.max(...allRanges.map((r) => r.end.getTime())))
-      aggRange = { start: minStart, end: maxEnd }
-    }
-
-    rows.push({
-      item: parentItem,
-      range: parseDateFields(parentItem),
-      indent: 0,
-      isGroupHeader: true,
-      groupId: parentItem.id,
-      collapsed,
-      aggregateRange: aggRange,
-    })
-
-    if (!collapsed) {
-      for (const child of children) {
-        rows.push({
-          item: child,
-          range: parseDateFields(child),
-          indent: 1,
-          isGroupHeader: false,
-          groupId: parentItem.id,
-          collapsed: false,
-          aggregateRange: null,
-        })
-      }
-    }
-  }
-
-  // Orphans (no parent in project, not a parent themselves)
-  for (const it of orphans) {
-    if (parentIds.has(it.id)) continue // already rendered as parent
-    rows.push({
-      item: it,
-      range: parseDateFields(it),
-      indent: 0,
-      isGroupHeader: false,
-      groupId: null,
-      collapsed: false,
-      aggregateRange: null,
-    })
-  }
-
-  return rows
 }
 
 function buildBar(
@@ -237,7 +137,7 @@ export function RoadmapView({
   const viewStart = new Date(today.getTime() + scrollOffset * stepDays * DAY_MS)
   const viewEnd = new Date(viewStart.getTime() + totalDays * DAY_MS)
 
-  const rows = buildRows(items, collapsedGroups)
+  const rows = groupByParent(items, collapsedGroups)
 
   // Header
   const headerChars: string[] = Array.from({ length: chartWidth }, () => ' ')
@@ -301,8 +201,16 @@ export function RoadmapView({
           statusWidth,
         )
 
-        // Group headers show aggregate range as lighter bar
-        const displayRange = row.isGroupHeader ? (row.aggregateRange ?? row.range) : row.range
+        // Group headers show aggregate range
+        const itemRange = parseDateFields(row.item)
+        let displayRange = itemRange
+        if (row.isGroupHeader) {
+          // Find children in visible + full items list and compute aggregate
+          const childItems = items.filter(
+            (it) => it.content.parentNumber === row.item.content.number,
+          )
+          displayRange = computeAggregateRange([row.item, ...childItems]) ?? itemRange
+        }
         const barChars = buildBar(displayRange, chartWidth, todayCol, viewStart, totalDays)
 
         const barColor = displayRange

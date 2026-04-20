@@ -125,14 +125,18 @@ export function App(props: Props) {
 
   const columns: ColumnGroup[] = useMemo(() => {
     if (!filteredSnapshot || !columnField) return []
-    const cols = groupItems(filteredSnapshot, columnField)
+    const cols = groupItems(filteredSnapshot, columnField, collapsedGroups)
     if (sortKey === 'manual') return cols
-    return cols.map((c) => ({ ...c, items: sortItems(c.items, sortKey) }))
-  }, [filteredSnapshot, columnField, sortKey])
+    return cols.map((c) => ({
+      ...c,
+      items: sortItems(c.items, sortKey),
+      rows: c.rows, // rows already built with groupByParent
+    }))
+  }, [filteredSnapshot, columnField, sortKey, collapsedGroups])
 
   const allColumns: ColumnGroup[] = useMemo(
-    () => (snapshot && columnField ? groupItems(snapshot, columnField) : []),
-    [snapshot, columnField],
+    () => (snapshot && columnField ? groupItems(snapshot, columnField, collapsedGroups) : []),
+    [snapshot, columnField, collapsedGroups],
   )
 
   // Flat sorted items for table layout
@@ -163,13 +167,13 @@ export function App(props: Props) {
     }
     if (columnIndex >= columns.length) setColumnIndex(columns.length - 1)
     const col = columns[Math.min(columnIndex, columns.length - 1)]
-    if (col && itemIndex >= col.items.length) {
-      setItemIndex(Math.max(0, col.items.length - 1))
+    if (col && itemIndex >= col.rows.length) {
+      setItemIndex(Math.max(0, col.rows.length - 1))
     }
   }, [columns, columnIndex, itemIndex, isFlatLayout, tableItems])
 
   const currentCol = isFlatLayout ? null : columns[columnIndex]
-  const currentItem = isFlatLayout ? tableItems[itemIndex] : currentCol?.items[itemIndex]
+  const currentItem = isFlatLayout ? tableItems[itemIndex] : currentCol?.rows[itemIndex]?.item
 
   const showFlash = useCallback((msg: string) => {
     setFlash(msg)
@@ -384,6 +388,20 @@ export function App(props: Props) {
       }
       return
     }
+    // Tab: toggle collapse for parent issue groups (all layouts)
+    if (key.tab && currentItem) {
+      setCollapsedGroups((prev) => {
+        const next = new Set(prev)
+        if (next.has(currentItem.id)) {
+          next.delete(currentItem.id)
+        } else {
+          next.add(currentItem.id)
+        }
+        return next
+      })
+      return
+    }
+
     // Roadmap-specific keys
     if (isRoadmapLayout) {
       if (key.leftArrow || input === 'h') {
@@ -417,18 +435,6 @@ export function App(props: Props) {
         showFlash('jumped to today')
         return
       }
-      if (key.tab && currentItem) {
-        setCollapsedGroups((prev) => {
-          const next = new Set(prev)
-          if (next.has(currentItem.id)) {
-            next.delete(currentItem.id)
-          } else {
-            next.add(currentItem.id)
-          }
-          return next
-        })
-        return
-      }
     }
     if (!isFlatLayout && (key.leftArrow || input === 'h')) {
       setColumnIndex((i) => Math.max(0, i - 1))
@@ -448,7 +454,7 @@ export function App(props: Props) {
       const max = isFlatLayout
         ? Math.max(0, tableItems.length - 1)
         : currentCol
-          ? Math.max(0, currentCol.items.length - 1)
+          ? Math.max(0, currentCol.rows.length - 1)
           : 0
       setItemIndex((i) => Math.min(max, i + 1))
       return
@@ -543,6 +549,7 @@ export function App(props: Props) {
           itemIndex={itemIndex}
           width={size.width}
           height={boardHeight}
+          collapsedGroups={collapsedGroups}
         />
       ) : (
         <TabsView

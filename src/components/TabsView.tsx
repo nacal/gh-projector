@@ -1,12 +1,7 @@
 import { Box, Text } from 'ink'
-import type { Item, SingleSelectFieldDef } from '../types'
+import type { SingleSelectFieldDef } from '../types'
+import type { ColumnGroup } from './Board'
 import { Card } from './Card'
-
-interface ColumnGroup {
-  id: string
-  name: string
-  items: Item[]
-}
 
 interface Props {
   columns: ColumnGroup[]
@@ -28,16 +23,17 @@ export function TabsView({
   columnFieldId,
 }: Props) {
   const col = columns[columnIndex]
+  const rows = col?.rows ?? []
 
   const maxVisibleItems = Math.max(1, Math.floor((height - 3) / 5))
   let start = 0
-  if (col && col.items.length > maxVisibleItems) {
+  if (rows.length > maxVisibleItems) {
     start = Math.max(
       0,
-      Math.min(col.items.length - maxVisibleItems, itemIndex - Math.floor(maxVisibleItems / 2)),
+      Math.min(rows.length - maxVisibleItems, itemIndex - Math.floor(maxVisibleItems / 2)),
     )
   }
-  const visible = col ? col.items.slice(start, start + maxVisibleItems) : []
+  const visible = rows.slice(start, start + maxVisibleItems)
 
   return (
     <Box flexDirection="column" width={width} height={height}>
@@ -51,30 +47,40 @@ export function TabsView({
                 color={active ? 'black' : 'white'}
                 backgroundColor={active ? 'cyan' : undefined}
               >
-                {` ${c.name} (${c.items.length}) `}
+                {` ${c.name} (${c.rows.length}) `}
               </Text>
             </Box>
           )
         })}
       </Box>
       <Box flexDirection="column" marginTop={1}>
-        {col && col.items.length === 0 && <Text dimColor>(empty)</Text>}
+        {rows.length === 0 && <Text dimColor>(empty)</Text>}
         {start > 0 && <Text dimColor>↑ {start} more</Text>}
-        {visible.map((item, i) => {
+        {visible.map((row, i) => {
           const absIndex = start + i
+          const selected = absIndex === itemIndex
           return (
-            <Card
-              key={item.id}
-              item={item}
-              width={width - 1}
-              selected={absIndex === itemIndex}
-              singleSelectFields={singleSelectFields}
-              columnFieldId={columnFieldId}
-            />
+            <Box key={row.item.id} paddingLeft={row.indent * 2}>
+              {row.isGroupHeader && (
+                <Text color={selected ? 'cyan' : 'white'} bold>
+                  {row.collapsed ? '▶ ' : '▼ '}
+                </Text>
+              )}
+              {!row.isGroupHeader && row.indent > 0 && <Text dimColor>{'  '}</Text>}
+              <Card
+                item={row.item}
+                width={
+                  width - 1 - row.indent * 2 - (row.isGroupHeader ? 2 : row.indent > 0 ? 2 : 0)
+                }
+                selected={selected}
+                singleSelectFields={singleSelectFields}
+                columnFieldId={columnFieldId}
+              />
+            </Box>
           )
         })}
-        {col && start + visible.length < col.items.length && (
-          <Text dimColor>↓ {col.items.length - (start + visible.length)} more</Text>
+        {start + visible.length < rows.length && (
+          <Text dimColor>↓ {rows.length - (start + visible.length)} more</Text>
         )}
       </Box>
     </Box>
